@@ -10,12 +10,12 @@ from tf_ext.bricks import embedding, rnn_decoder, dense_to_one_hot, linear, conv
 class CNN:
     def __init__(self, data, FLAGS):
         with tf.variable_scope("history_length"):
-            history_length = data.train_set['features'].shape[1]
+            history_length = data.train_set['histories'].shape[1]
 
         encoder_embedding_size = 32 * 4
         encoder_vocabulary_length = len(data.idx2word_history)
         with tf.variable_scope("encoder_sequence_length"):
-            encoder_sequence_length = data.train_set['features'].shape[2]
+            encoder_sequence_length = data.train_set['histories'].shape[2]
 
         decoder_lstm_size = 16 * 2
         decoder_embedding_size = 16 * 2
@@ -25,15 +25,15 @@ class CNN:
 
         # inference model
         with tf.name_scope('model'):
-            features = tf.placeholder("int32", name='features')
+            histories = tf.placeholder("int32", name='histories')
             targets = tf.placeholder("int32", name='true_targets')
             use_dropout_prob = tf.placeholder("float32", name='use_dropout_prob')
 
             with tf.variable_scope("batch_size"):
-                batch_size = tf.shape(features)[0]
+                batch_size = tf.shape(histories)[0]
 
             encoder_embedding = embedding(
-                    input=features,
+                    input=histories,
                     length=encoder_vocabulary_length,
                     size=encoder_embedding_size,
                     name='encoder_embedding'
@@ -159,8 +159,9 @@ class CNN:
 
         self.history_length = history_length
         self.encoder_sequence_length = encoder_sequence_length
-        self.features = features
+        self.features = histories
         self.targets = targets
+        self.use_dropout_prob = use_dropout_prob
         self.batch_size = batch_size
         self.use_inputs_prob = use_inputs_prob
         self.targets_given_features = targets_given_features

@@ -141,6 +141,9 @@ def index_and_pad_utterance(utterance, word2idx, max_length, add_sos=True):
         s = []
 
     for w in utterance:
+        # if w == '20 milton road chesterton':
+        #     print(len(utterance), utterance, w, max_length)
+        #     sys.exit(0)
         # if w not in word2idx:
         #     print('U', utterance)
         #     print('OOV: {oov}'.format(oov=w))
@@ -171,7 +174,7 @@ def index_and_pad_history(history, word2idx, max_length_history, max_length_utte
 
 
 def index_action_template(action_template, word2idx_action_template):
-    return [word2idx_action_template.get(action_template, word2idx_action_template['_OOV_']),]
+    return [word2idx_action_template.get(action_template, word2idx_action_template['_OOV_']), ]
 
 
 def index_and_pad_examples(examples,
@@ -184,13 +187,18 @@ def index_and_pad_examples(examples,
     index_pad_examples = []
     for abs_history, history_arguments, abs_state, abs_action, action_arguments, action_template in examples:
         ip_history = index_and_pad_history(abs_history, word2idx_history, max_length_history, max_length_utterance)
-        ip_history_arguments = index_and_pad_utterance(history_arguments, word2idx_history_arguments, len(history_arguments[0]), add_sos=False)
+        # print(len(history_arguments), history_arguments)
+        ip_history_arguments = index_and_pad_utterance(history_arguments, word2idx_history_arguments,
+                                                       len(history_arguments), add_sos=False)
+        # print(len(ip_history_arguments), ip_history_arguments)
         ip_state = index_and_pad_utterance(abs_state, word2idx_state, max_length_state, add_sos=False)
         ip_action = index_and_pad_utterance(abs_action, word2idx_action, max_length_action, add_sos=False)
-        ip_action_arguments = index_and_pad_utterance(action_arguments, word2idx_action_arguments, len(action_arguments[0]), add_sos=False)
+        ip_action_arguments = index_and_pad_utterance(action_arguments, word2idx_action_arguments,
+                                                      len(action_arguments), add_sos=False)
         ip_action_template = index_action_template(action_template, word2idx_action_template)
 
-        index_pad_examples.append([ip_history, ip_history_arguments, ip_state, ip_action, ip_action_arguments, ip_action_template])
+        index_pad_examples.append(
+                [ip_history, ip_history_arguments, ip_state, ip_action, ip_action_arguments, ip_action_template])
 
     return index_pad_examples
 
@@ -247,13 +255,14 @@ class DSTC2:
         word2idx_action_arguments = get_word2idx(idx2word_action_arguments)
         word2idx_action_template = get_word2idx(idx2word_action_template)
 
-        # print(word2idx_history)
         # print(idx2word_history)
-        print(len(idx2word_action), idx2word_action)
-        print(len(idx2word_action_arguments), idx2word_action_arguments)
-        print(len(idx2word_action_template), idx2word_action_template)
+        # print(idx2word_history_arguments)
+        # print(word2idx_state)
+        # print(len(idx2word_action), idx2word_action)
+        # print(len(idx2word_action_arguments), idx2word_action_arguments)
+        # print(len(idx2word_action_template), idx2word_action_template)
         # print()
-        sys.exit(0)
+        # sys.exit(0)
 
         max_length_history = 0
         max_length_utterance = 0
@@ -285,28 +294,31 @@ class DSTC2:
         #         print('U', len(utterance), utterance)
         #     print('T', len(target), target)
 
-        train_histories = [e[0] for e in train_index_examples]
-        train_histories_arguments = [e[1] for e in train_index_examples]
-        train_states = [e[2] for e in train_index_examples]
-        train_actions = [e[3] for e in train_index_examples]
-        train_actions_arguments = [e[4] for e in train_index_examples]
-        train_actions_template = [e[5] for e in train_index_examples]
+        train_histories, \
+        train_histories_arguments, \
+        train_states, \
+        train_actions, \
+        train_actions_arguments, \
+        train_actions_template = self.unpack_index_examples(train_index_examples)
 
-        train_histories = np.asarray(train_histories, dtype=np.int32)
-        train_histories_arguments = np.asarray(train_histories_arguments, dtype=np.int32)
-        train_states = np.asarray(train_states, dtype=np.int32)
-        train_actions = np.asarray(train_actions, dtype=np.int32)
-        train_actions_arguments = np.asarray(train_actions_arguments, dtype=np.int32)
-        train_actions_template = np.asarray(train_actions_template, dtype=np.int32)
+        # for e in train_histories_arguments:
+        #     print(len(e), e)
 
-        print(train_histories)
-        print(train_states)
-        print(train_actions_template)
-
+        # print(train_histories)
+        # print(train_histories_arguments)
+        # print(train_states)
+        # print(train_actions)
+        # print(train_actions_arguments)
+        # print(train_actions_template)
 
         test_index_examples = index_and_pad_examples(
-                abstract_test_examples, word2idx_history, max_length_history, max_length_utterance,
-                word2idx_target, max_length_state
+                abstract_test_examples,
+                word2idx_history, max_length_history, max_length_utterance,
+                word2idx_history_arguments,
+                word2idx_state, max_length_state,
+                word2idx_action, max_length_action,
+                word2idx_action_arguments,
+                word2idx_action_template
         )
         # print(test_index_examples)
         # sys.exit(0)
@@ -316,26 +328,39 @@ class DSTC2:
         #         print('U', len(utterance), utterance)
         #     print('T', len(target), target)
 
-        test_histories = [history for history, _ in test_index_examples]
-        test_word_responses = [target for _, target in test_index_examples]
-
-        test_histories = np.asarray(test_histories, dtype=np.int32)
-        test_word_responses = np.asarray(test_word_responses, dtype=np.int32)
+        test_histories, \
+        test_histories_arguments, \
+        test_states, \
+        test_actions, \
+        test_actions_arguments, \
+        test_actions_template = self.unpack_index_examples(test_index_examples)
 
         # print(test_histories)
         # print(test_word_responses)
 
         train_set = {
-            'histories':      train_histories,
-            'word_responses': train_states
+            'histories': train_histories,
+            'histories_arguments': train_histories_arguments,
+            'states': train_states,
+            'actions': train_actions,
+            'actions_arguments': train_actions_arguments,
+            'actions_template': train_actions_template
         }
         dev_set = {
-            'histories': train_histories          [int(len(train_set) * 0.9):],
-            'word_responses': train_states[int(len(train_set) * 0.9):]
+            'histories': train_histories[:10:],
+            'histories_arguments': train_histories_arguments[:10:],
+            'states': train_states[:10:],
+            'actions': train_actions[:10:],
+            'actions_arguments': train_actions_arguments[:10:],
+            'actions_template': train_actions_template[:10:]
         }
         test_set = {
-            'histories':      test_histories,
-            'word_responses': test_word_responses
+            'histories': test_histories,
+            'histories_arguments': test_histories_arguments,
+            'states': test_states,
+            'actions': test_actions,
+            'actions_arguments': test_actions_arguments,
+            'actions_template': test_actions_template
         }
 
         self.train_set = train_set
@@ -347,8 +372,16 @@ class DSTC2:
 
         self.idx2word_history = idx2word_history
         self.word2idx_history = word2idx_history
-        self.idx2word_target = idx2word_state
-        self.word2idx_target = word2idx_target
+        self.idx2word_history_arguments = idx2word_history_arguments
+        self.word2idx_history_arguments = word2idx_history_arguments
+        self.idx2word_state = idx2word_state
+        self.word2idx_state = word2idx_state
+        self.idx2word_action = idx2word_action
+        self.word2idx_action = word2idx_action
+        self.idx2word_action_arguments = idx2word_action_arguments
+        self.word2idx_action_arguments = word2idx_action_arguments
+        self.idx2word_action_template = idx2word_action_template
+        self.word2idx_action_template = word2idx_action_template
 
         self.batch_size = batch_size
         self.train_batch_indexes = [[i, i + batch_size] for i in range(0, self.train_set_size, batch_size)]
@@ -356,14 +389,24 @@ class DSTC2:
         # print(idx2word_history)
         # print(word2idx_history)
         # print()
-        # print(idx2word_target)
-        # print(word2idx_target)
+        # print(idx2word_state)
+        # print(word2idx_state)
         # sys.exit(0)
+
+    def unpack_index_examples(self, index_examples):
+        histories = np.asarray([e[0] for e in index_examples], dtype=np.int32)
+        histories_arguments = np.asarray([e[1] for e in index_examples], dtype=np.int32)
+        states = np.asarray([e[2] for e in index_examples], dtype=np.int32)
+        actions = np.asarray([e[3] for e in index_examples], dtype=np.int32)
+        actions_arguments = np.asarray([e[4] for e in index_examples], dtype=np.int32)
+        actions_template = np.asarray([e[5] for e in index_examples], dtype=np.int32)
+
+        return histories, histories_arguments, states, actions, actions_arguments, actions_template
 
     def iter_train_batches(self):
         for batch in self.train_batch_indexes:
             yield {
-                'histories': self.train_set['histories']          [batch[0]:batch[1]],
+                'histories': self.train_set['histories'][batch[0]:batch[1]],
                 'word_responses': self.train_set['word_responses'][batch[0]:batch[1]],
             }
         shuffle(self.train_batch_indexes)

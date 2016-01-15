@@ -55,8 +55,8 @@ def train(model):
         saver = tf.train.Saver()
 
         # training
-        tvars = tf.trainable_variables()
-        # tvars = [v for v in tvars if 'embedding_table' not in v.name] # all variables except embeddings
+        t_vars = tf.trainable_variables()
+        # t_vars = [v for v in t_vars if 'embedding_table' not in v.name] # all variables except embeddings
         learning_rate = tf.Variable(float(FLAGS.learning_rate), trainable=False)
 
         # train_op = AdamPlusOptimizer(
@@ -71,10 +71,10 @@ def train(model):
 
         learning_rate_decay_op = learning_rate.assign(learning_rate * FLAGS.decay)
         global_step = tf.Variable(0, trainable=False)
-        gradients = tf.gradients(model.loss, tvars)
+        gradients = tf.gradients(model.loss, t_vars)
 
         clipped_gradients, _ = tf.clip_by_global_norm(gradients, FLAGS.max_gradient_norm)
-        train_op = train_op.apply_gradients(zip(clipped_gradients, tvars), global_step=global_step)
+        train_op = train_op.apply_gradients(zip(clipped_gradients, t_vars), global_step=global_step)
 
         tf.initialize_all_variables().run()
 
@@ -242,8 +242,12 @@ def main(_):
                     batch_size=FLAGS.batch_size
             )
 
-            print('Input vocabulary size:  ', len(data.idx2word_history))
-            print('Output vocabulary size: ', len(data.idx2word_target))
+            print('History vocabulary size:      ', len(data.idx2word_history))
+            print('History args. vocabulary size:', len(data.idx2word_history_arguments))
+            print('State vocabulary size:        ', len(data.idx2word_state))
+            print('Action vocabulary size:       ', len(data.idx2word_action))
+            print('Action args. vocabulary size: ', len(data.idx2word_action_arguments))
+            print('Action tmpl. vocabulary size: ', len(data.idx2word_action_template))
             print('-' * 120)
 
             if FLAGS.model == 'cnn':

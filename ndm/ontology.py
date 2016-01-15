@@ -107,25 +107,25 @@ class Ontology:
         self.fs = {}
         for slot in ontology['informable']:
             for value in ontology['informable'][slot]:
-                self.add_onto_entry(slot, value, value)
+                self.add_entity(slot, value, value)
 
         for entity in database:
             for slot in entity:
                 value = entity[slot]
 
-                self.add_onto_entry(slot, value, value)
+                self.add_entity(slot, value, value)
 
         # HACK: add extra surface forms alternatives
-        self.add_onto_entry('PRICERANGE', 'moderate', 'moderately')
-        self.add_onto_entry('PRICERANGE', 'moderate', 'modreately')
-        self.add_onto_entry('PRICERANGE', 'expensive', 'spensive')
-        self.add_onto_entry('FOOD', 'asian oriental', 'asian')
-        self.add_onto_entry('FOOD', 'mediterranean', 'mediteranian')
-        self.add_onto_entry('FOOD', 'barbeque', 'barbecue')
-        self.add_onto_entry('FOOD', '', 'cantonates')
-        self.add_onto_entry('FOOD', '', '')
+        self.add_entity('PRICERANGE', 'moderate', 'moderately')
+        self.add_entity('PRICERANGE', 'moderate', 'modreately')
+        self.add_entity('PRICERANGE', 'expensive', 'spensive')
+        self.add_entity('FOOD', 'asian oriental', 'asian')
+        self.add_entity('FOOD', 'mediterranean', 'mediteranian')
+        self.add_entity('FOOD', 'barbeque', 'barbecue')
+        self.add_entity('FOOD', 'cantonese', 'cantonates')
+        # self.add_entity('FOOD', '', '')
 
-    def add_onto_entry(self, slot, value, form):
+    def add_entity(self, slot, value, form):
         self.slots.add(slot.upper())
         self.svf[slot][value].add(tuple(form.lower().split()))
         self.fvs[tuple(form.lower().split())][value].add(slot)
@@ -173,7 +173,6 @@ class Ontology:
 
     def abstract(self, examples):
         abstract_examples = []
-        arguments = []
 
         for history, state, action in examples:
             if debug:
@@ -189,6 +188,14 @@ class Ontology:
                     print('AbsU ', abs_utt)
                     print('ArgsH', history_arguments)
                     print()
+
+            # if '' in history_arguments.values():
+            #     print('U    ', utterance)
+            #     print('AbsU ', abs_utt)
+            #     print('ArgsH', history_arguments)
+            #     print()
+            #     sys.exit(0)
+
             abs_state = self.abstract_utterance(state, history_arguments)
             history_arguments = history_arguments.values()
 
