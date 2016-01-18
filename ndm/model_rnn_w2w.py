@@ -9,34 +9,34 @@ from tensorflow.python.ops.rnn_cell import LSTMCell
 from tf_ext.bricks import embedding, rnn, rnn_decoder, dense_to_one_hot, brnn
 
 
-class RNN:
-    def __init__(self, data, FLAGS):
+class Model:
+    def __init__(self, data, targets, decoder_vocabulary_length, FLAGS):
         with tf.variable_scope("history_length"):
-            history_length = data.train_set['features'].shape[1]
+            history_length = data.train_set['histories'].shape[1]
 
         encoder_lstm_size = 16
         encoder_embedding_size = 16 * 2
         encoder_vocabulary_length = len(data.idx2word_history)
         with tf.variable_scope("encoder_sequence_length"):
-            encoder_sequence_length = data.train_set['features'].shape[2]
+            encoder_sequence_length = data.train_set['histories'].shape[2]
 
         decoder_lstm_size = 16
         decoder_embedding_size = 16
-        decoder_vocabulary_length = len(data.idx2word_target)
+        # decoder_vocabulary_length = len(data.idx2word_target)
         with tf.variable_scope("decoder_sequence_length"):
-            decoder_sequence_length = data.train_set['targets'].shape[1]
+            decoder_sequence_length = data.train_set[targets].shape[1]
 
         # inference model
         with tf.name_scope('model'):
-            features = tf.placeholder("int32", name='features')
+            histories = tf.placeholder("int32", name='histories')
             targets = tf.placeholder("int32", name='true_targets')
             use_dropout_prob = tf.placeholder("float32", name='use_dropout_prob')
 
             with tf.variable_scope("batch_size"):
-                batch_size = tf.shape(features)[0]
+                batch_size = tf.shape(histories)[0]
 
             encoder_embedding = embedding(
-                    input=features,
+                    input=histories,
                     length=encoder_vocabulary_length,
                     size=encoder_embedding_size,
                     name='encoder_embedding'
@@ -177,7 +177,7 @@ class RNN:
                         use_inputs_prob=use_inputs_prob
                 )
 
-                targets_given_features = tf.concat(1, decoder_outputs_softmax)
+                predictions = tf.concat(1, decoder_outputs_softmax)
                 # print(p_o_i)
 
         if FLAGS.print_variables:
@@ -186,7 +186,7 @@ class RNN:
 
         with tf.name_scope('loss'):
             one_hot_labels = dense_to_one_hot(targets, decoder_vocabulary_length)
-            loss = tf.reduce_mean(- one_hot_labels * tf.log(targets_given_features), name='loss')
+            loss = tf.reduce_mean(- one_hot_labels * tf.log(predictions), name='loss')
             for v in tf.trainable_variables():
                 for n in ['/W_', '/W:', '/B:']:
                     if n in v.name:
@@ -195,24 +195,22 @@ class RNN:
             tf.scalar_summary('loss', loss)
 
         with tf.name_scope('accuracy'):
-            correct_prediction = tf.equal(tf.argmax(one_hot_labels, 2), tf.argmax(targets_given_features, 2))
+            correct_prediction = tf.equal(tf.argmax(one_hot_labels, 2), tf.argmax(predictions, 2))
             accuracy = tf.reduce_mean(tf.cast(correct_prediction, 'float'))
             tf.scalar_summary('accuracy', accuracy)
 
         self.data = data
         self.train_set = data.train_set
+        self.dev_set = data.dev_set
         self.test_set = data.test_set
-        self.idx2word_history = data.idx2word_history
-        self.word2idx_history = data.word2idx_history
-        self.idx2word_target = data.idx2word_target
-        self.word2idx_target = data.word2idx_target
 
         self.history_length = history_length
         self.encoder_sequence_length = encoder_sequence_length
-        self.features = features
+        self.histories = histories
         self.targets = targets
+        self.use_dropout_prob = use_dropout_prob
         self.batch_size = batch_size
         self.use_inputs_prob = use_inputs_prob
-        self.targets_given_features = targets_given_features
+        self.predictions = predictions
         self.loss = loss
         self.accuracy = accuracy

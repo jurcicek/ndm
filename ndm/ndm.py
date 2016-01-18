@@ -7,18 +7,21 @@ import numpy as np
 import tensorflow as tf
 
 import dataset
-import model_cnn as cnn
-import model_rnn as rnn
+import model_cnn_w2w as cnn_w2w
+import model_rnn_w2w as rnn_w2w
+import model_cnn_w2t as cnn_w2t
 
 from tf_ext.bricks import device_for_node_cpu
 from tf_ext.optimizers import AdamPlusOptimizer, AdamPlusCovOptimizer
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_string('model', 'cnn', '"cnn" (convolutional network for state tracking) | '
-                                    '"rnn" (bidirectional recurrent network for state tracking)')
+flags.DEFINE_string('model', 'cnn-w2w', '"cnn-w2w" (convolutional network for state tracking - words 2 words ) | '
+                                        '"rnn-w2w" (bidirectional recurrent network for state tracking - words 2 words) | '
+                                        '"cnn-w2t" (bidirectional recurrent network for state tracking - words 2 template)')
 flags.DEFINE_string('task', 'tracker', '"tracker" (dialogue state tracker) | '
-                                       '"e2e" (word to word dialogue management)')
+                                       '"w2w" (word to word dialogue management) | '
+                                       '"w2t" (word to template dialogue management)')
 flags.DEFINE_string('train_data', './data.dstc2.traindev.json', 'The train data the model should be trained on.')
 flags.DEFINE_string('test_data', './data.dstc2.test.json', 'The test data the model should be trained on.')
 flags.DEFINE_float('data_fraction', 0.1, 'The fraction of data to usd to train model.')
@@ -46,7 +49,7 @@ There are several models available:
 """
 
 
-def train(model):
+def train(model, targets, idx2word_target):
     # with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
     with tf.Session() as sess:
         # Merge all the summaries and write them out to ./log
@@ -79,7 +82,7 @@ def train(model):
         tf.initialize_all_variables().run()
 
         # prepare batch indexes
-        train_set_size = model.train_set['features'].shape[0]
+        train_set_size = model.train_set['histories'].shape[0]
         print('Train set size:', train_set_size)
         batch_size = FLAGS.batch_size
         print('Batch size:', batch_size)
@@ -96,8 +99,8 @@ def train(model):
                 sess.run(
                         train_op,
                         feed_dict={
-                            model.features: batch  ['features'],
-                            model.targets: batch   ['targets'],
+                            model.histories: batch  ['histories'],
+                            model.targets: batch   [targets],
                             model.use_inputs_prob: use_inputs_prob,
                         }
                 )
@@ -111,8 +114,8 @@ def train(model):
                 print('  Train data')
                 lss, acc = sess.run([model.loss, model.accuracy],
                                     feed_dict={
-                                        model.features: model.train_set['features'],
-                                        model.targets: model.train_set ['targets'],
+                                        model.histories: model.train_set['histories'],
+                                        model.targets: model.train_set [targets],
                                         model.use_inputs_prob:         1.0,
                                     })
                 print('    - use inputs prob = {uip:f}'.format(uip=1.0))
@@ -120,8 +123,8 @@ def train(model):
                 print('      - loss          = {lss:f}'.format(lss=lss))
                 lss, acc = sess.run([model.loss, model.accuracy],
                                     feed_dict={
-                                        model.features: model.train_set['features'],
-                                        model.targets: model.train_set ['targets'],
+                                        model.histories: model.train_set['histories'],
+                                        model.targets: model.train_set [targets],
                                         model.use_inputs_prob:         0.0,
                                     })
                 print('    - use inputs prob = {uip:f}'.format(uip=0.0))
@@ -129,8 +132,8 @@ def train(model):
                 print('      - loss          = {lss:f}'.format(lss=lss))
                 summary, lss, acc = sess.run([merged, model.loss, model.accuracy],
                                              feed_dict={
-                                                 model.features: model.test_set['features'],
-                                                 model.targets: model.test_set ['targets'],
+                                                 model.histories: model.test_set['histories'],
+                                                 model.targets: model.test_set [targets],
                                                  model.use_inputs_prob:        0.0,
                                              })
                 writer.add_summary(summary, epoch)
@@ -158,46 +161,46 @@ def train(model):
         print()
 
         # print('Test features')
-        # print(test_set['features'])
+        # print(test_set['histories'])
         # print('Test targets')
-        print('Shape of targets:', model.test_set['targets'].shape)
-        # print(test_set['targets'])
+        print('Shape of targets:', model.test_set[targets].shape)
+        # print(test_set[targets])
         print('Predictions')
-        targets_given_features = sess.run(model.targets_given_features,
+        predictions = sess.run(model.predictions,
                                          feed_dict={
-                                             model.features: model.test_set['features'],
-                                             model.targets: model.test_set ['targets'],
+                                             model.histories: model.test_set['histories'],
+                                             model.targets: model.test_set [targets],
                                              model.use_inputs_prob:        0.0,
                                          })
-        targets_given_features_argmax = np.argmax(targets_given_features, 2)
-        print('Shape of predictions:', targets_given_features.shape)
+        predictions_argmax = np.argmax(predictions, 2)
+        print('Shape of predictions:', predictions.shape)
         print('Argmax predictions')
         # print(p_o_i_argmax)
         print()
-        for features in range(0, targets_given_features_argmax.shape[0],
-                              max(int(targets_given_features_argmax.shape[0]*0.05), 1)):
+        for features in range(0, predictions_argmax.shape[0],
+                              max(int(predictions_argmax.shape[0]*0.05), 1)):
             print('History', features)
 
-            for j in range(model.test_set['features'].shape[1]):
+            for j in range(model.test_set['histories'].shape[1]):
                 utterance = []
-                for k in range(model.test_set['features'].shape[2]):
-                    w = model.idx2word_history[model.test_set['features'][features, j, k]]
+                for k in range(model.test_set['histories'].shape[2]):
+                    w = model.data.idx2word_history[model.test_set['histories'][features, j, k]]
                     if w not in ['_SOS_', '_EOS_']:
                         utterance.append(w)
                 if utterance:
                     print('U {j}: {c:80}'.format(j=j, c=' '.join(utterance)))
 
             prediction = []
-            for j in range(targets_given_features_argmax.shape[1]):
-                w = model.idx2word_target[targets_given_features_argmax[features, j]]
+            for j in range(predictions_argmax.shape[1]):
+                w = idx2word_target[predictions_argmax[features, j]]
                 if w not in ['_SOS_', '_EOS_']:
                     prediction.append(w)
 
             print('P  : {t:80}'.format(t=' '.join(prediction)))
 
             target = []
-            for j in range(model.test_set['targets'].shape[1]):
-                w = model.idx2word_target[model.test_set['targets'][features, j]]
+            for j in range(model.test_set[targets].shape[1]):
+                w = idx2word_target[model.test_set[targets][features, j]]
                 if w not in ['_SOS_', '_EOS_']:
                     target.append(w)
 
@@ -250,12 +253,33 @@ def main(_):
             print('Action tmpl. vocabulary size: ', len(data.idx2word_action_template))
             print('-' * 120)
 
-            if FLAGS.model == 'cnn':
-                model = cnn.CNN(data, FLAGS)
-            elif FLAGS.model == 'rnn':
-                model = rnn.RNN(data, FLAGS)
+            if FLAGS.task == 'tracker':
+                decoder_vocabulary_length = len(data.idx2word_state)
+                idx2word_target = data.idx2word_state
+                targets = 'states'
+            elif FLAGS.task == 'w2w':
+                decoder_vocabulary_length = len(data.idx2word_action)
+                idx2word_target = data.idx2word_action
+                targets = 'actions'
+            elif FLAGS.task == 'w2t':
+                decoder_vocabulary_length = len(data.idx2word_action_template)
+                idx2word_target = data.idx2word_action_template
+                targets = 'actions_template'
+            else:
+                print('Unsupported task')
+                sys.exit(1)
 
-            train(model)
+            if FLAGS.model == 'cnn-w2w':
+                model = cnn_w2w.Model(data, targets, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'rnn-w2w':
+                model = rnn_w2w.Model(data, targets, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn-w2t':
+                model = cnn_w2t.Model(data, targets, decoder_vocabulary_length, FLAGS)
+            else:
+                print('Unsupported model')
+                sys.exit(1)
+
+            train(model, targets, idx2word_target)
 
 
 if __name__ == '__main__':

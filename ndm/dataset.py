@@ -407,7 +407,11 @@ class DSTC2:
         for batch in self.train_batch_indexes:
             yield {
                 'histories': self.train_set['histories'][batch[0]:batch[1]],
-                'word_responses': self.train_set['word_responses'][batch[0]:batch[1]],
+                'histories_arguments': self.train_set['histories_arguments'][batch[0]:batch[1]],
+                'states': self.train_set['states'][batch[0]:batch[1]],
+                'actions': self.train_set['actions'][batch[0]:batch[1]],
+                'actions_arguments': self.train_set['actions_arguments'][batch[0]:batch[1]],
+                'actions_template': self.train_set['actions_template'][batch[0]:batch[1]],
             }
         shuffle(self.train_batch_indexes)
 

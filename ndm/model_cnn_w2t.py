@@ -7,8 +7,8 @@ from tensorflow.python.ops.rnn_cell import LSTMCell
 from tf_ext.bricks import embedding, rnn_decoder, dense_to_one_hot, linear, conv2d, max_pool
 
 
-class CNN:
-    def __init__(self, data, FLAGS):
+class Model:
+    def __init__(self, data, targets, decoder_vocabulary_length, FLAGS):
         with tf.variable_scope("history_length"):
             history_length = data.train_set['histories'].shape[1]
 
@@ -16,12 +16,6 @@ class CNN:
         encoder_vocabulary_length = len(data.idx2word_history)
         with tf.variable_scope("encoder_sequence_length"):
             encoder_sequence_length = data.train_set['histories'].shape[2]
-
-        decoder_lstm_size = 16 * 2
-        decoder_embedding_size = 16 * 2
-        decoder_vocabulary_length = len(data.idx2word_target)
-        with tf.variable_scope("decoder_sequence_length"):
-            decoder_sequence_length = data.train_set['targets'].shape[1]
 
         # inference model
         with tf.name_scope('model'):
@@ -103,32 +97,19 @@ class CNN:
             with tf.name_scope("Decoder"):
                 use_inputs_prob = tf.placeholder("float32", name='use_inputs_prob')
 
-                with tf.name_scope("RNNDecoderCell"):
-                    cell = LSTMCell(
-                            num_units=decoder_lstm_size,
-                            input_size=decoder_embedding_size+encoder_embedding_size,
-                            use_peepholes=True,
-                    )
-                    initial_state = cell.zero_state(batch_size, tf.float32)
-
                 # decode all histories along the utterance axis
                 final_encoder_state = encoded_history
 
-                decoder_states, decoder_outputs, decoder_outputs_softmax = rnn_decoder(
-                        cell=cell,
-                        inputs=[targets[:, word] for word in range(decoder_sequence_length)],
-                        static_input=final_encoder_state,
-                        initial_state=initial_state, #final_encoder_state,
-                        embedding_size=decoder_embedding_size,
-                        embedding_length=decoder_vocabulary_length,
-                        sequence_length=decoder_sequence_length,
-                        name='RNNDecoder',
-                        reuse=False,
-                        use_inputs_prob=use_inputs_prob
+                l = linear(
+                        input=final_encoder_state,
+                        input_size=encoder_embedding_size,
+                        output_size=decoder_vocabulary_length,
+                        name='linear'
                 )
 
-                targets_given_features = tf.concat(1, decoder_outputs_softmax)
-                # print(p_o_i)
+                predictions = tf.nn.softmax(l, name="softmax_output")
+
+                predictions = tf.concat(1, decoder_outputs_softmax)
 
         if FLAGS.print_variables:
             for v in tf.trainable_variables():
@@ -136,7 +117,7 @@ class CNN:
 
         with tf.name_scope('loss'):
             one_hot_labels = dense_to_one_hot(targets, decoder_vocabulary_length)
-            loss = tf.reduce_mean(- one_hot_labels * tf.log(targets_given_features), name='loss')
+            loss = tf.reduce_mean(- one_hot_labels * tf.log(predictions), name='loss')
             for v in tf.trainable_variables():
                 for n in ['/W_', '/W:', '/B:']:
                     if n in v.name:
@@ -145,25 +126,22 @@ class CNN:
             tf.scalar_summary('loss', loss)
 
         with tf.name_scope('accuracy'):
-            correct_prediction = tf.equal(tf.argmax(one_hot_labels, 2), tf.argmax(targets_given_features, 2))
+            correct_prediction = tf.equal(tf.argmax(one_hot_labels, 2), tf.argmax(predictions, 2))
             accuracy = tf.reduce_mean(tf.cast(correct_prediction, 'float'))
             tf.scalar_summary('accuracy', accuracy)
 
         self.data = data
         self.train_set = data.train_set
+        self.dev_set = data.dev_set
         self.test_set = data.test_set
-        self.idx2word_history = data.idx2word_history
-        self.word2idx_history = data.word2idx_history
-        self.idx2word_target = data.idx2word_target
-        self.word2idx_target = data.word2idx_target
 
         self.history_length = history_length
         self.encoder_sequence_length = encoder_sequence_length
-        self.features = histories
+        self.histories = histories
         self.targets = targets
         self.use_dropout_prob = use_dropout_prob
         self.batch_size = batch_size
         self.use_inputs_prob = use_inputs_prob
-        self.targets_given_features = targets_given_features
+        self.predictions = predictions
         self.loss = loss
         self.accuracy = accuracy
