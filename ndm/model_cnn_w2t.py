@@ -8,7 +8,7 @@ from tf_ext.bricks import embedding, rnn_decoder, dense_to_one_hot, linear, conv
 
 
 class Model:
-    def __init__(self, data, targets, decoder_vocabulary_length, FLAGS):
+    def __init__(self, data, decoder_vocabulary_length, FLAGS):
         with tf.variable_scope("history_length"):
             history_length = data.train_set['histories'].shape[1]
 
@@ -40,76 +40,61 @@ class Model:
                 #         filter=[1, 3, encoder_embedding_size, encoder_embedding_size],
                 #         name='conv_utt_size_3_layer_1'
                 # )
-                # conv_s3 = conv2d(
-                #         input=conv_s3,
+                # conv3 = conv2d(
+                #         input=conv3,
                 #         filter=[1, 3, encoder_embedding_size, encoder_embedding_size],
                 #         name='conv_utt_size_3_layer_2'
                 # )
                 # print(conv3)
                 # k = encoder_sequence_length
-                # mp_s3 = max_pool(conv_s3, ksize=[1, 1, k, 1], strides=[1, 1, k, 1])
-                # print(mp_s3)
+                # mp = max_pool(conv3, ksize=[1, 1, k, 1], strides=[1, 1, k, 1])
+                # print(mp)
+                # encoded_utterances = mp
 
-                # encoded_utterances = mp_s3
                 encoded_utterances = tf.reduce_max(conv3, [2], keep_dims=True)
 
             with tf.name_scope("HistoryEncoder"):
                 conv3 = encoded_utterances
-                # conv3 = conv2d(
-                #         input=conv3,
-                #         filter=[3, 1, encoder_embedding_size, encoder_embedding_size],
-                #         name='conv_hist_size_3_layer_1'
-                # )
-                # conv_s3 = conv2d(
-                #         input=conv_s3,
-                #         filter=[3, 1, encoder_embedding_size, encoder_embedding_size],
-                #         name='conv_hist_size_3_layer_2'
-                # )
+                conv3 = conv2d(
+                        input=conv3,
+                        filter=[3, 1, encoder_embedding_size, encoder_embedding_size],
+                        name='conv_hist_size_3_layer_1'
+                )
+                conv3 = conv2d(
+                        input=conv3,
+                        filter=[3, 1, encoder_embedding_size, encoder_embedding_size],
+                        name='conv_hist_size_3_layer_2'
+                )
                 # print(conv3)
                 # k = encoder_sequence_length
-                # mp_s3 = max_pool(conv_s3, ksize=[1, 1, k, 1], strides=[1, 1, k, 1])
-                # print(mp_s3)
+                # mp = max_pool(conv3, ksize=[1, 1, k, 1], strides=[1, 1, k, 1])
+                # print(mp)
+                # encoded_history = tf.reshape(mp, [-1, encoder_embedding_size])
 
                 encoded_history = tf.reduce_max(conv3, [1, 2])
-
-                # projection = linear(
-                #         input=encoded_history,
-                #         input_size=encoder_embedding_size,
-                #         output_size=encoder_embedding_size,
-                #         name='linear_projection_1'
-                # )
-                # encoded_history = tf.nn.relu(projection)
-                # projection = linear(
-                #         input=encoded_history,
-                #         input_size=encoder_embedding_size,
-                #         output_size=encoder_embedding_size,
-                #         name='linear_projection_2'
-                # )
-                # encoded_history = tf.nn.relu(projection)
-                # projection = linear(
-                #         input=encoded_history,
-                #         input_size=encoder_embedding_size,
-                #         output_size=decoder_lstm_size * 2,
-                #         name='linear_projection_3'
-                # )
-                # encoded_history = tf.nn.relu(projection)
 
             with tf.name_scope("Decoder"):
                 use_inputs_prob = tf.placeholder("float32", name='use_inputs_prob')
 
                 # decode all histories along the utterance axis
-                final_encoder_state = encoded_history
+                activation = tf.nn.relu(encoded_history)
 
-                l = linear(
-                        input=final_encoder_state,
+                projection = linear(
+                        input=activation,
+                        input_size=encoder_embedding_size,
+                        output_size=encoder_embedding_size,
+                        name='linear_projection_1'
+                )
+                activation = tf.nn.relu(projection)
+
+                projection = linear(
+                        input=activation,
                         input_size=encoder_embedding_size,
                         output_size=decoder_vocabulary_length,
-                        name='linear'
+                        name='linear_projection_2'
                 )
-
-                predictions = tf.nn.softmax(l, name="softmax_output")
-
-                predictions = tf.concat(1, decoder_outputs_softmax)
+                predictions = tf.nn.softmax(projection, name="softmax_output")
+                # print(predictions)
 
         if FLAGS.print_variables:
             for v in tf.trainable_variables():
@@ -119,14 +104,15 @@ class Model:
             one_hot_labels = dense_to_one_hot(targets, decoder_vocabulary_length)
             loss = tf.reduce_mean(- one_hot_labels * tf.log(predictions), name='loss')
             for v in tf.trainable_variables():
-                for n in ['/W_', '/W:', '/B:']:
+                # for n in ['/W_', '/W:', '/B:', '/embedding_table:']:
+                for n in ['/W_', '/W:', '/B:', ]:
                     if n in v.name:
                         print('Regularization using', v.name)
                         loss += FLAGS.regularization * tf.reduce_mean(tf.pow(v, 2))
             tf.scalar_summary('loss', loss)
 
         with tf.name_scope('accuracy'):
-            correct_prediction = tf.equal(tf.argmax(one_hot_labels, 2), tf.argmax(predictions, 2))
+            correct_prediction = tf.equal(tf.argmax(one_hot_labels, 1), tf.argmax(predictions, 1))
             accuracy = tf.reduce_mean(tf.cast(correct_prediction, 'float'))
             tf.scalar_summary('accuracy', accuracy)
 

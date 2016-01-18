@@ -36,6 +36,7 @@ flags.DEFINE_float('beta2', 0.999, 'AdamPlusOptimizer 2nd moment decay.')
 flags.DEFINE_float('epsilon', 1e-5, 'AdamPlusOptimizer epsilon.')
 flags.DEFINE_float('pow', 0.9, 'AdamPlusOptimizer pow.')
 flags.DEFINE_float('regularization', 1e-6, 'Weight of regularization.')
+flags.DEFINE_float('sparse_regularization', 1e-4, 'Weight of sparse regularization.')
 flags.DEFINE_float('max_gradient_norm', 5e0, 'Clip gradients to this norm.')
 flags.DEFINE_float('use_inputs_prob_decay', 0.999, 'Decay of the probability of using '
                                                    'the true targets during generation.')
@@ -69,6 +70,7 @@ def train(model, targets, idx2word_target):
                 beta2=FLAGS.beta2,
                 epsilon=FLAGS.epsilon,
                 pow=FLAGS.pow,
+                sparse_regularization=FLAGS.sparse_regularization,
                 use_locking=False,
                 name='trainer')
 
@@ -172,40 +174,63 @@ def train(model, targets, idx2word_target):
                                              model.targets: model.test_set [targets],
                                              model.use_inputs_prob:        0.0,
                                          })
-        predictions_argmax = np.argmax(predictions, 2)
-        print('Shape of predictions:', predictions.shape)
-        print('Argmax predictions')
-        # print(p_o_i_argmax)
-        print()
-        for features in range(0, predictions_argmax.shape[0],
-                              max(int(predictions_argmax.shape[0]*0.05), 1)):
-            print('History', features)
 
-            for j in range(model.test_set['histories'].shape[1]):
-                utterance = []
-                for k in range(model.test_set['histories'].shape[2]):
-                    w = model.data.idx2word_history[model.test_set['histories'][features, j, k]]
-                    if w not in ['_SOS_', '_EOS_']:
-                        utterance.append(w)
-                if utterance:
-                    print('U {j}: {c:80}'.format(j=j, c=' '.join(utterance)))
-
-            prediction = []
-            for j in range(predictions_argmax.shape[1]):
-                w = idx2word_target[predictions_argmax[features, j]]
-                if w not in ['_SOS_', '_EOS_']:
-                    prediction.append(w)
-
-            print('P  : {t:80}'.format(t=' '.join(prediction)))
-
-            target = []
-            for j in range(model.test_set[targets].shape[1]):
-                w = idx2word_target[model.test_set[targets][features, j]]
-                if w not in ['_SOS_', '_EOS_']:
-                    target.append(w)
-
-            print('T  : {t:80}'.format(t=' '.join(target)))
+        if FLAGS.task == 'w2w':
+            predictions_argmax = np.argmax(predictions, 2)
+            print('Shape of predictions:', predictions.shape)
+            print('Argmax predictions')
             print()
+            for history in range(0, predictions_argmax.shape[0],
+                                  max(int(predictions_argmax.shape[0]*0.05), 1)):
+                print('History', history)
+
+                for j in range(model.test_set['histories'].shape[1]):
+                    utterance = []
+                    for k in range(model.test_set['histories'].shape[2]):
+                        w = model.data.idx2word_history[model.test_set['histories'][history, j, k]]
+                        if w not in ['_SOS_', '_EOS_']:
+                            utterance.append(w)
+                    if utterance:
+                        print('U {j}: {c:80}'.format(j=j, c=' '.join(utterance)))
+
+                prediction = []
+                for j in range(predictions_argmax.shape[1]):
+                    w = idx2word_target[predictions_argmax[history, j]]
+                    if w not in ['_SOS_', '_EOS_']:
+                        prediction.append(w)
+
+                print('P  : {t:80}'.format(t=' '.join(prediction)))
+
+                target = []
+                for j in range(model.test_set[targets].shape[1]):
+                    w = idx2word_target[model.test_set[targets][history, j]]
+                    if w not in ['_SOS_', '_EOS_']:
+                        target.append(w)
+
+                print('T  : {t:80}'.format(t=' '.join(target)))
+                print()
+        else:
+            predictions_argmax = np.argmax(predictions, 1)
+            print('Shape of predictions:', predictions.shape)
+            print('Argmax predictions')
+            print()
+            for history in range(0, predictions_argmax.shape[0],
+                                  max(int(predictions_argmax.shape[0]*0.05), 1)):
+                print('History', history)
+
+                for j in range(model.test_set['histories'].shape[1]):
+                    utterance = []
+                    for k in range(model.test_set['histories'].shape[2]):
+                        w = model.data.idx2word_history[model.test_set['histories'][history, j, k]]
+                        if w not in ['_SOS_', '_EOS_']:
+                            utterance.append(w)
+                    if utterance:
+                        print('U {j}: {c:80}'.format(j=j, c=' '.join(utterance)))
+
+                print('P  : {t:80}'.format(t=idx2word_target[predictions_argmax[history]]))
+                print('T  : {t:80}'.format(t=idx2word_target[model.test_set[targets][history]]))
+                print()
+
 
 
 def main(_):
@@ -231,6 +256,7 @@ def main(_):
             print('    epsilon               = {epsilon}'.format(epsilon=FLAGS.epsilon))
             print('    pow                   = {pow}'.format(pow=FLAGS.pow))
             print('    regularization        = {regularization}'.format(regularization=FLAGS.regularization))
+            print('    sparse_regularization = {regularization}'.format(regularization=FLAGS.sparse_regularization))
             print('    max_gradient_norm     = {max_gradient_norm}'.format(max_gradient_norm=FLAGS.max_gradient_norm))
             print('    use_inputs_prob_decay = {use_inputs_prob_decay}'.format(
                     use_inputs_prob_decay=FLAGS.use_inputs_prob_decay))
@@ -266,7 +292,7 @@ def main(_):
                 idx2word_target = data.idx2word_action_template
                 targets = 'actions_template'
             else:
-                print('Unsupported task')
+                print('Error: Unsupported task')
                 sys.exit(1)
 
             if FLAGS.model == 'cnn-w2w':
@@ -274,9 +300,12 @@ def main(_):
             elif FLAGS.model == 'rnn-w2w':
                 model = rnn_w2w.Model(data, targets, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'cnn-w2t':
-                model = cnn_w2t.Model(data, targets, decoder_vocabulary_length, FLAGS)
+                if FLAGS.task != 'w2t':
+                    print('Error: Model c11-w2t only supports ONLY tasks w2t!')
+                    sys.exit(1)
+                model = cnn_w2t.Model(data, decoder_vocabulary_length, FLAGS)
             else:
-                print('Unsupported model')
+                print('Error: Unsupported model')
                 sys.exit(1)
 
             train(model, targets, idx2word_target)

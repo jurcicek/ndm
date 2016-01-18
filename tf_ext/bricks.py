@@ -80,6 +80,7 @@ def conv2d(input, filter, strides=[1, 1, 1, 1], name='conv2d'):
         )
 
         y = tf.nn.relu(tf.nn.bias_add(tf.nn.conv2d(input, W, strides=strides, padding='SAME'), b))
+        # y = tf.nn.elu(tf.nn.bias_add(tf.nn.conv2d(input, W, strides=strides, padding='SAME'), b))
 
         y.filter = filter
         y.strides = strides

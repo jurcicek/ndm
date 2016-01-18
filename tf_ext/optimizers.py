@@ -18,7 +18,7 @@ class AdamPlusOptimizer(optimizer.Optimizer):
     @@__init__
     """
 
-    def __init__(self, learning_rate=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8, pow=0.7,
+    def __init__(self, learning_rate=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8, pow=0.7, sparse_regularization=1e-4,
                  use_locking=False, name="Norm"):
         """Construct a modified Adam optimizer.
 
@@ -65,6 +65,7 @@ class AdamPlusOptimizer(optimizer.Optimizer):
         self._beta2 = beta2
         self._epsilon = epsilon
         self._pow = pow
+        self._sparse_regularization = sparse_regularization
 
         # Tensor versions of the constructor arguments, created in _prepare().
         self._lr_t = None
@@ -150,6 +151,11 @@ class AdamPlusOptimizer(optimizer.Optimizer):
         var_update = state_ops.assign_sub(var,
                                           lr * m_t / (v_sqrt + self._epsilon_t),
                                           use_locking=self._use_locking)
+        # regularization
+        var_update = state_ops.assign_sub(var_update,
+                                          self._sparse_regularization * var,
+                                          use_locking=self._use_locking)
+
         return control_flow_ops.group(*[var_update, m_t, v_t])
 
     def _finish(self, update_ops, name_scope):
@@ -172,7 +178,7 @@ class AdamPlusCovOptimizer(optimizer.Optimizer):
     @@__init__
     """
 
-    def __init__(self, learning_rate=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8, pow=0.7,
+    def __init__(self, learning_rate=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8, pow=0.7, sparse_regularization=1e-4,
                  use_locking=False, name="Norm"):
         """Construct a modified Adam optimizer.
 
@@ -219,6 +225,7 @@ class AdamPlusCovOptimizer(optimizer.Optimizer):
         self._beta2 = beta2
         self._epsilon = epsilon
         self._pow = pow
+        self._sparse_regularization = sparse_regularization
 
         # Tensor versions of the constructor arguments, created in _prepare().
         self._lr_t = None
@@ -305,6 +312,10 @@ class AdamPlusCovOptimizer(optimizer.Optimizer):
         v_sqrt = tf.pow(v_t, self._pow_t)
         var_update = state_ops.assign_sub(var,
                                           lr * m_t / (v_sqrt + self._epsilon_t),
+                                          use_locking=self._use_locking)
+        # regularization
+        var_update = state_ops.assign_sub(var_update,
+                                          self._sparse_regularization * var,
                                           use_locking=self._use_locking)
         return control_flow_ops.group(*[var_update, m_t, v_t])
 

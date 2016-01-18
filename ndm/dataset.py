@@ -119,7 +119,7 @@ def get_idx2word(examples):
     idx2word_state = get_indexes(words_state)
     idx2word_action = get_indexes(words_action)
     idx2word_action_arguments = get_indexes(words_action_arguments)
-    idx2word_action_templates = get_indexes(words_action_templates)
+    idx2word_action_templates = get_indexes(words_action_templates, add_sos=False, add_eos=False)
 
     return (idx2word_history, idx2word_history_arguments,
             idx2word_state,
@@ -127,11 +127,18 @@ def get_idx2word(examples):
             idx2word_action_templates)
 
 
-def get_indexes(dct):
-    idx2word_history = ['_SOS_', '_EOS_', '_OOV_']
+def get_indexes(dct, add_sos = True, add_eos=True, add_oov=True):
+    idx2word = []
+    if add_sos:
+        idx2word.append('_SOS_')
+    if add_eos:
+        idx2word.append('_EOS_')
+    if add_oov:
+        idx2word.append('_OOV_')
+
     dct = [word for word in dct if dct[word] >= 2]
-    idx2word_history.extend(sorted(dct))
-    return idx2word_history
+    idx2word.extend(sorted(dct))
+    return idx2word
 
 
 def index_and_pad_utterance(utterance, word2idx, max_length, add_sos=True):
@@ -174,7 +181,7 @@ def index_and_pad_history(history, word2idx, max_length_history, max_length_utte
 
 
 def index_action_template(action_template, word2idx_action_template):
-    return [word2idx_action_template.get(action_template, word2idx_action_template['_OOV_']), ]
+    return word2idx_action_template.get(action_template, word2idx_action_template['_OOV_'])
 
 
 def index_and_pad_examples(examples,
@@ -242,7 +249,7 @@ class DSTC2:
         abstract_test_examples = add_action_templates(abstract_test_examples)
 
         # self.print_abstract_examples(abstract_train_examples)
-        # self.print_abstract_examples(abstract_test_examples)
+        #self.print_abstract_examples(abstract_test_examples)
 
         idx2word_history, idx2word_history_arguments, \
         idx2word_state, \
