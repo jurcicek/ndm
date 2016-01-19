@@ -103,12 +103,6 @@ class Model:
         with tf.name_scope('loss'):
             one_hot_labels = dense_to_one_hot(targets, decoder_vocabulary_length)
             loss = tf.reduce_mean(- one_hot_labels * tf.log(predictions), name='loss')
-            for v in tf.trainable_variables():
-                # for n in ['/W_', '/W:', '/B:', '/embedding_table:']:
-                for n in ['/W_', '/W:', '/B:', ]:
-                    if n in v.name:
-                        print('Regularization using', v.name)
-                        loss += FLAGS.regularization * tf.reduce_mean(tf.pow(v, 2))
             tf.scalar_summary('loss', loss)
 
         with tf.name_scope('accuracy'):

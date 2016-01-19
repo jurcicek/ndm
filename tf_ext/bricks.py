@@ -5,7 +5,7 @@ import tensorflow as tf
 
 
 def glorot(n1, n2):
-    return math.sqrt(6) / math.sqrt(float(n1 + n2))
+    return math.sqrt(6) / math.sqrt(float(n1 * n2))
 
 
 def linear(input, input_size, output_size, name='linear'):

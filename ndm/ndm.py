@@ -35,8 +35,8 @@ flags.DEFINE_float('beta1', 0.9, 'AdamPlusOptimizer 1st moment decay.')
 flags.DEFINE_float('beta2', 0.999, 'AdamPlusOptimizer 2nd moment decay.')
 flags.DEFINE_float('epsilon', 1e-5, 'AdamPlusOptimizer epsilon.')
 flags.DEFINE_float('pow', 0.9, 'AdamPlusOptimizer pow.')
-flags.DEFINE_float('regularization', 1e-6, 'Weight of regularization.')
-flags.DEFINE_float('sparse_regularization', 1e-4, 'Weight of sparse regularization.')
+flags.DEFINE_float('dense_regularization', 1e-6, 'Weight of regularization for dense updates.')
+flags.DEFINE_float('sparse_regularization', 1e-6, 'Weight of regularization foir sparse updates.')
 flags.DEFINE_float('max_gradient_norm', 5e0, 'Clip gradients to this norm.')
 flags.DEFINE_float('use_inputs_prob_decay', 0.999, 'Decay of the probability of using '
                                                    'the true targets during generation.')
@@ -70,6 +70,7 @@ def train(model, targets, idx2word_target):
                 beta2=FLAGS.beta2,
                 epsilon=FLAGS.epsilon,
                 pow=FLAGS.pow,
+                dense_regularization=FLAGS.dense_regularization,
                 sparse_regularization=FLAGS.sparse_regularization,
                 use_locking=False,
                 name='trainer')
@@ -255,7 +256,7 @@ def main(_):
             print('    beta2                 = {beta2}'.format(beta2=FLAGS.beta2))
             print('    epsilon               = {epsilon}'.format(epsilon=FLAGS.epsilon))
             print('    pow                   = {pow}'.format(pow=FLAGS.pow))
-            print('    regularization        = {regularization}'.format(regularization=FLAGS.regularization))
+            print('    dense_regularization  = {regularization}'.format(regularization=FLAGS.dense_regularization))
             print('    sparse_regularization = {regularization}'.format(regularization=FLAGS.sparse_regularization))
             print('    max_gradient_norm     = {max_gradient_norm}'.format(max_gradient_norm=FLAGS.max_gradient_norm))
             print('    use_inputs_prob_decay = {use_inputs_prob_decay}'.format(
