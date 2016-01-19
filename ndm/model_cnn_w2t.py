@@ -12,7 +12,7 @@ class Model:
         with tf.variable_scope("history_length"):
             history_length = data.train_set['histories'].shape[1]
 
-        encoder_embedding_size = 32 * 4
+        encoder_embedding_size = 16
         encoder_vocabulary_length = len(data.idx2word_history)
         with tf.variable_scope("encoder_sequence_length"):
             encoder_sequence_length = data.train_set['histories'].shape[2]
@@ -35,11 +35,11 @@ class Model:
 
             with tf.name_scope("UtterancesEncoder"):
                 conv3 = encoder_embedding
-                # conv3 = conv2d(
-                #         input=conv3,
-                #         filter=[1, 3, encoder_embedding_size, encoder_embedding_size],
-                #         name='conv_utt_size_3_layer_1'
-                # )
+                conv3 = conv2d(
+                        input=conv3,
+                        filter=[1, 3, encoder_embedding_size, encoder_embedding_size],
+                        name='conv_utt_size_3_layer_1'
+                )
                 # conv3 = conv2d(
                 #         input=conv3,
                 #         filter=[1, 3, encoder_embedding_size, encoder_embedding_size],
@@ -90,8 +90,16 @@ class Model:
                 projection = linear(
                         input=activation,
                         input_size=encoder_embedding_size,
-                        output_size=decoder_vocabulary_length,
+                        output_size=encoder_embedding_size,
                         name='linear_projection_2'
+                )
+                activation = tf.nn.relu(projection)
+
+                projection = linear(
+                        input=activation,
+                        input_size=encoder_embedding_size,
+                        output_size=decoder_vocabulary_length,
+                        name='linear_projection_3'
                 )
                 predictions = tf.nn.softmax(projection, name="softmax_output")
                 # print(predictions)
@@ -102,7 +110,8 @@ class Model:
 
         with tf.name_scope('loss'):
             one_hot_labels = dense_to_one_hot(targets, decoder_vocabulary_length)
-            loss = tf.reduce_mean(- one_hot_labels * tf.log(predictions), name='loss')
+            loss = tf.reduce_mean(- one_hot_labels * tf.log(tf.clip_by_value(predictions, 1e-10, 1.0)), name='loss')
+            # loss = tf.reduce_mean(- one_hot_labels * tf.log(predictions), name='loss')
             tf.scalar_summary('loss', loss)
 
         with tf.name_scope('accuracy'):

@@ -4,8 +4,12 @@ import math
 import tensorflow as tf
 
 
-def glorot(n1, n2):
-    return math.sqrt(6) / math.sqrt(float(n1 * n2))
+def glorot_plus(n1, n2):
+    return math.sqrt(6) / math.sqrt(float(n1 + n2))
+
+
+def glorot_mul(n1, n2):
+    return math.sqrt(3) / math.sqrt(float(n1 * n2))
 
 
 def linear(input, input_size, output_size, name='linear'):
@@ -20,14 +24,13 @@ def linear(input, input_size, output_size, name='linear'):
         W = tf.get_variable(
                 name='W',
                 shape=[input_size, output_size],
-                # initializer=tf.truncated_normal_initializer(stddev=3.0 / math.sqrt(float(input_size * output_size))),
-                initializer=tf.random_uniform_initializer(-glorot(input_size, output_size),
-                                                          glorot(input_size, output_size)),
+                initializer=tf.random_uniform_initializer(-glorot_plus(input_size, output_size),
+                                                          glorot_plus(input_size, output_size)),
         )
         b = tf.get_variable(
                 name='B',
                 shape=[output_size],
-                initializer=tf.truncated_normal_initializer(stddev=1e-9 / math.sqrt(float(input_size * output_size))),
+                initializer=tf.truncated_normal_initializer(stddev=1e-9 / glorot_mul(input_size, output_size)),
         )
 
         y = tf.matmul(input, W) + b
@@ -53,8 +56,7 @@ def embedding(input, length, size, name='embedding'):
         embedding_table = tf.get_variable(
                 name='embedding_table',
                 shape=[length, size],
-                # initializer=tf.truncated_normal_initializer(stddev=3.0 / math.sqrt(float(length * size))),
-                initializer=tf.random_uniform_initializer(-glorot(length, size), glorot(length, size)),
+                initializer=tf.random_uniform_initializer(-glorot_plus(length, size), glorot_plus(length, size)),
         )
 
         y = tf.gather(embedding_table, input)
@@ -71,16 +73,18 @@ def conv2d(input, filter, strides=[1, 1, 1, 1], name='conv2d'):
         W = tf.get_variable(
                 name='W',
                 shape=filter,
+                # initializer=tf.truncated_normal_initializer(stddev=1e-9 / glorot_mul(3, 3))
                 initializer=tf.truncated_normal_initializer()
         )
         b = tf.get_variable(
                 name='B',
                 shape=filter[-1],
+                # initializer=tf.truncated_normal_initializer(stddev=1e-9 / glorot_mul(3, 3))
                 initializer=tf.truncated_normal_initializer()
         )
 
+        # y = tf.nn.relu6(tf.nn.bias_add(tf.nn.conv2d(input, W, strides=strides, padding='SAME'), b))
         y = tf.nn.relu(tf.nn.bias_add(tf.nn.conv2d(input, W, strides=strides, padding='SAME'), b))
-        # y = tf.nn.elu(tf.nn.bias_add(tf.nn.conv2d(input, W, strides=strides, padding='SAME'), b))
 
         y.filter = filter
         y.strides = strides
@@ -171,9 +175,7 @@ def rnn_decoder(cell, inputs, initial_state, embedding_size, embedding_length, s
             embedding_table = tf.get_variable(
                     name='embedding_table',
                     shape=[embedding_length, embedding_size],
-                    initializer=tf.truncated_normal_initializer(
-                            stddev=3.0 / math.sqrt(float(embedding_length * embedding_size))
-                    ),
+                    initializer=tf.truncated_normal_initializer(stddev=glorot_mul(embedding_length, embedding_size)),
             )
             # 0 is index for _SOS_ (start of sentence symbol)
             initial_embedding = tf.gather(embedding_table, tf.zeros(tf.pack([batch_size]), tf.int32))
