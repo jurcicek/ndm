@@ -3,8 +3,7 @@ import sys
 
 import tensorflow as tf
 
-from tensorflow.python.ops.rnn_cell import LSTMCell
-from tf_ext.bricks import embedding, rnn_decoder, dense_to_one_hot, linear, conv2d, max_pool
+from tf_ext.bricks import embedding, dense_to_one_hot, linear, conv2d, max_pool
 
 
 class Model:

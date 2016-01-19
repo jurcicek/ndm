@@ -10,6 +10,7 @@ import dataset
 import model_cnn_w2w as cnn_w2w
 import model_rnn_w2w as rnn_w2w
 import model_cnn_w2t as cnn_w2t
+import model_rnn_w2t as rnn_w2t
 
 from tf_ext.bricks import device_for_node_cpu
 from tf_ext.optimizers import AdamPlusOptimizer, AdamPlusCovOptimizer
@@ -18,7 +19,8 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_string('model', 'cnn-w2w', '"cnn-w2w" (convolutional network for state tracking - words 2 words ) | '
                                         '"rnn-w2w" (bidirectional recurrent network for state tracking - words 2 words) | '
-                                        '"cnn-w2t" (bidirectional recurrent network for state tracking - words 2 template)')
+                                        '"cnn-w2t" (convolutional network for state tracking - words 2 template)'
+                                        '"rnn-w2t" (bidirectional recurrent network for state tracking - words 2 template)')
 flags.DEFINE_string('task', 'tracker', '"tracker" (dialogue state tracker) | '
                                        '"w2w" (word to word dialogue management) | '
                                        '"w2t" (word to template dialogue management)')
@@ -302,9 +304,14 @@ def main(_):
                 model = rnn_w2w.Model(data, targets, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'cnn-w2t':
                 if FLAGS.task != 'w2t':
-                    print('Error: Model c11-w2t only supports ONLY tasks w2t!')
+                    print('Error: Model cnn-w2t only supports ONLY tasks w2t!')
                     sys.exit(1)
                 model = cnn_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'rnn-w2t':
+                if FLAGS.task != 'w2t':
+                    print('Error: Model rnn-w2t only supports ONLY tasks w2t!')
+                    sys.exit(1)
+                model = rnn_w2t.Model(data, decoder_vocabulary_length, FLAGS)
             else:
                 print('Error: Unsupported model')
                 sys.exit(1)
