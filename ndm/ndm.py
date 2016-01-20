@@ -56,7 +56,9 @@ There are several models available:
 
 def train(model, targets, idx2word_target):
     # with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-    with tf.Session() as sess:
+    with tf.Session(config=tf.ConfigProto(inter_op_parallelism_threads=4,
+                                          intra_op_parallelism_threads=4,
+                                          use_per_session_threads=True)) as sess:
         # Merge all the summaries and write them out to ./log
         merged = tf.merge_all_summaries()
         writer = tf.train.SummaryWriter('./log', sess.graph_def)
@@ -106,8 +108,8 @@ def train(model, targets, idx2word_target):
                 sess.run(
                         train_op,
                         feed_dict={
-                            model.histories: batch  ['histories'],
-                            model.targets: batch   [targets],
+                            model.histories: batch['histories'],
+                            model.targets: batch[targets],
                             model.use_inputs_prob: use_inputs_prob,
                         }
                 )
@@ -122,8 +124,8 @@ def train(model, targets, idx2word_target):
                 lss, acc = sess.run([model.loss, model.accuracy],
                                     feed_dict={
                                         model.histories: model.train_set['histories'],
-                                        model.targets: model.train_set [targets],
-                                        model.use_inputs_prob:         1.0,
+                                        model.targets: model.train_set[targets],
+                                        model.use_inputs_prob: 1.0,
                                     })
                 print('    - use inputs prob = {uip:f}'.format(uip=1.0))
                 print('      - accuracy      = {acc:f}'.format(acc=acc))
@@ -131,8 +133,8 @@ def train(model, targets, idx2word_target):
                 lss, acc = sess.run([model.loss, model.accuracy],
                                     feed_dict={
                                         model.histories: model.train_set['histories'],
-                                        model.targets: model.train_set [targets],
-                                        model.use_inputs_prob:         0.0,
+                                        model.targets: model.train_set[targets],
+                                        model.use_inputs_prob: 0.0,
                                     })
                 print('    - use inputs prob = {uip:f}'.format(uip=0.0))
                 print('      - accuracy      = {acc:f}'.format(acc=acc))
@@ -140,8 +142,8 @@ def train(model, targets, idx2word_target):
                 summary, lss, acc = sess.run([merged, model.loss, model.accuracy],
                                              feed_dict={
                                                  model.histories: model.test_set['histories'],
-                                                 model.targets: model.test_set [targets],
-                                                 model.use_inputs_prob:        0.0,
+                                                 model.targets: model.test_set[targets],
+                                                 model.use_inputs_prob: 0.0,
                                              })
                 writer.add_summary(summary, epoch)
                 print('  Test data')
@@ -174,11 +176,11 @@ def train(model, targets, idx2word_target):
         # print(test_set[targets])
         print('Predictions')
         predictions = sess.run(model.predictions,
-                                         feed_dict={
-                                             model.histories: model.test_set['histories'],
-                                             model.targets: model.test_set [targets],
-                                             model.use_inputs_prob:        0.0,
-                                         })
+                               feed_dict={
+                                   model.histories: model.test_set['histories'],
+                                   model.targets: model.test_set[targets],
+                                   model.use_inputs_prob: 0.0,
+                               })
 
         if FLAGS.task == 'w2w':
             predictions_argmax = np.argmax(predictions, 2)
@@ -186,7 +188,7 @@ def train(model, targets, idx2word_target):
             print('Argmax predictions')
             print()
             for history in range(0, predictions_argmax.shape[0],
-                                  max(int(predictions_argmax.shape[0]*0.05), 1)):
+                                 max(int(predictions_argmax.shape[0] * 0.05), 1)):
                 print('History', history)
 
                 for j in range(model.test_set['histories'].shape[1]):
@@ -220,7 +222,7 @@ def train(model, targets, idx2word_target):
             print('Argmax predictions')
             print()
             for history in range(0, predictions_argmax.shape[0],
-                                  max(int(predictions_argmax.shape[0]*0.05), 1)):
+                                 max(int(predictions_argmax.shape[0] * 0.05), 1)):
                 print('History', history)
 
                 for j in range(model.test_set['histories'].shape[1]):
@@ -235,7 +237,6 @@ def train(model, targets, idx2word_target):
                 print('P  : {t:80}'.format(t=idx2word_target[predictions_argmax[history]]))
                 print('T  : {t:80}'.format(t=idx2word_target[model.test_set[targets][history]]))
                 print()
-
 
 
 def main(_):
