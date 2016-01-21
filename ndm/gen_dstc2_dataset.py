@@ -46,6 +46,8 @@ def extract_data(file_name):
             for lab_turn, log_turn in zip(label['turns'], log['turns']):
                 system = log_turn['output']['transcript']
                 user = lab_turn['transcription']
+                user_asr = log_turn['input']['live']['asr-hyps'][0]['asr-hyp']
+                user_asr_score = log_turn['input']['live']['asr-hyps'][0]['score']
 
                 state = []
                 state.append(gen_slot('food', lab_turn['goal-labels']))
@@ -60,10 +62,12 @@ def extract_data(file_name):
 
                 print(system)
                 print(user)
+                print(user_asr)
+                print(user_asr_score)
                 print(state)
                 print('-' * 120)
 
-                conversation.append((system, user, state))
+                conversation.append((system, user, user_asr, user_asr_score, state))
     return conversation
 
 
