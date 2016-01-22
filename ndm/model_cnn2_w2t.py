@@ -39,11 +39,11 @@ class Model:
                         filter=[1, 3, encoder_embedding_size, encoder_embedding_size],
                         name='conv_utt_size_3_layer_1'
                 )
-                # conv3 = conv2d(
-                #         input=conv3,
-                #         filter=[1, 3, encoder_embedding_size, encoder_embedding_size],
-                #         name='conv_utt_size_3_layer_2'
-                # )
+                conv3 = conv2d(
+                        input=conv3,
+                        filter=[1, 3, encoder_embedding_size, encoder_embedding_size],
+                        name='conv_utt_size_3_layer_2'
+                )
                 # print(conv3)
                 # k = encoder_sequence_length
                 # mp = max_pool(conv3, ksize=[1, 1, k, 1], strides=[1, 1, k, 1])

@@ -9,7 +9,9 @@ import tensorflow as tf
 import dataset
 import model_cnn_w2w as cnn_w2w
 import model_rnn_w2w as rnn_w2w
-import model_cnn_w2t as cnn_w2t
+import model_cnn0_w2t as cnn0_w2t
+import model_cnn1_w2t as cnn1_w2t
+import model_cnn2_w2t as cnn2_w2t
 import model_rnn1_w2t as rnn1_w2t
 import model_rnn2_w2t as rnn2_w2t
 
@@ -20,7 +22,9 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_string('model', 'cnn-w2w', '"cnn-w2w" (convolutional network for state tracking - words 2 words ) | '
                                         '"rnn-w2w" (bidirectional recurrent network for state tracking - words 2 words) | '
-                                        '"cnn-w2t" (convolutional network for state tracking - words 2 template | '
+                                        '"cnn0-w2t" (convolutional network for state tracking - words 2 template | '
+                                        '"cnn1-w2t" (convolutional network for state tracking - words 2 template | '
+                                        '"cnn2-w2t" (convolutional network for state tracking - words 2 template | '
                                         '"rnn1-w2t" (forward only recurrent network for state tracking - words 2 template | '
                                         '"rnn2-w2t" (bidirectional recurrent network for state tracking - words 2 template)')
 flags.DEFINE_string('task', 'tracker', '"tracker" (dialogue state tracker) | '
@@ -58,8 +62,8 @@ There are several models available:
 
 def train(model, targets, idx2word_target):
     # with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-    with tf.Session(config=tf.ConfigProto(inter_op_parallelism_threads=4,
-                                          intra_op_parallelism_threads=4,
+    with tf.Session(config=tf.ConfigProto(inter_op_parallelism_threads=1,
+                                          intra_op_parallelism_threads=1,
                                           use_per_session_threads=True)) as sess:
         # Merge all the summaries and write them out to ./log
         merged = tf.merge_all_summaries()
@@ -343,10 +347,18 @@ def main(_):
                 model = cnn_w2w.Model(data, targets, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'rnn-w2w':
                 model = rnn_w2w.Model(data, targets, decoder_vocabulary_length, FLAGS)
-            elif FLAGS.model == 'cnn-w2t':
+            elif FLAGS.model == 'cnn0-w2t':
                 if FLAGS.task != 'w2t':
-                    raise Exception('Error: Model cnn-w2t only supports ONLY tasks w2t!')
-                model = cnn_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+                    raise Exception('Error: Model cnn1-w2t only supports ONLY tasks w2t!')
+                model = cnn0_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn1-w2t':
+                if FLAGS.task != 'w2t':
+                    raise Exception('Error: Model cnn1-w2t only supports ONLY tasks w2t!')
+                model = cnn1_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn2-w2t':
+                if FLAGS.task != 'w2t':
+                    raise Exception('Error: Model cnn2-w2t only supports ONLY tasks w2t!')
+                model = cnn2_w2t.Model(data, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'rnn1-w2t':
                 if FLAGS.task != 'w2t':
                     raise Exception('Error: Model rnn1-w2t only supports ONLY tasks w2t!')
