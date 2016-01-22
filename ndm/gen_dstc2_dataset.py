@@ -2,6 +2,8 @@
 import glob
 import json
 import os
+import re
+from random import shuffle
 
 import wget
 
@@ -45,6 +47,8 @@ def extract_data(file_name):
 
             for lab_turn, log_turn in zip(label['turns'], log['turns']):
                 system = log_turn['output']['transcript']
+                system = re.sub(r'There are \d+ restaurants', 'There are # restaurants', system)
+                system = re.sub(r'There are  restaurants', 'There are # restaurants', system)
                 user = lab_turn['transcription']
                 user_asr = log_turn['input']['live']['asr-hyps'][0]['asr-hyp']
                 user_asr_score = log_turn['input']['live']['asr-hyps'][0]['score']
@@ -91,10 +95,20 @@ if __name__ == '__main__':
     download_dstc2_data()
     unpack()
 
-    conversations = gen_data('./tmp/dstc2_test/data')
-    with open('./data.dstc2.test.json', 'w') as f:
-        json.dump(conversations, f, sort_keys=True, indent=4, separators=(',', ': '))
+    conversations_test = gen_data('./tmp/dstc2_test/data')
+    conversations_traindev = gen_data('./tmp/dstc2_traindev/data')
 
-    conversations = gen_data('./tmp/dstc2_traindev/data')
+    conversations = conversations_test + conversations_traindev
+    shuffle(conversations)
+
+    # I resplit the data as the train and test are not balanced
+    # - there are only 16 'There are' phrases in the original traindev data
+    # - but there are 1210 'There are' phrases in the original traindev data
+
+    len80 = int(len(conversations)*0.8)
     with open('./data.dstc2.traindev.json', 'w') as f:
-        json.dump(conversations, f, sort_keys=True, indent=4, separators=(',', ': '))
+        json.dump(conversations[:len80], f, sort_keys=True, indent=4, separators=(',', ': '))
+
+    with open('./data.dstc2.test.json', 'w') as f:
+        json.dump(conversations[len80:], f, sort_keys=True, indent=4, separators=(',', ': '))
+
