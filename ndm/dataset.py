@@ -22,7 +22,7 @@ def load_json_data(file_name):
     return text_data
 
 
-def gen_examples(text_data):
+def gen_examples(text_data, input):
     """Generates training examples for the conversation to sequence model. Here, we experiment with conversational models
     that is converting a conversational history into dialogue state representation (dialogue state tracking) and generation
     a textual response given the conversation history (dialogue policy).
@@ -33,13 +33,25 @@ def gen_examples(text_data):
     examples = []
     for conversation in text_data:
         history = []
+        scores = []
         prev_turn = None
         for turn in conversation:
             if prev_turn:
                 history.append(prev_turn[0])
-                history.append(prev_turn[1])
-                state = prev_turn[2]  # the dialogue state
-                action = turn[0]  # the system action / response
+
+                if input == 'trs':
+                    user_input = prev_turn[1]
+                    score = 1.0
+                elif input == 'asr':
+                    user_input = prev_turn[2]
+                    score = float(prev_turn[3])
+                else:
+                    raise Exception('Unsupported type of input')
+                history.append(user_input)
+                scores.append(score)  # the score of the last ASR user input
+
+                state = prev_turn[4]  # the dialogue state
+                action = turn[0]      # the system action / response
                 examples.append(deepcopy([history, state, action]))
             prev_turn = turn
 
@@ -219,7 +231,7 @@ def add_action_templates(abstract_test_examples):
 
 
 class DSTC2:
-    def __init__(self, mode, train_data_fn, data_fraction, test_data_fn, ontology_fn, database_fn, batch_size):
+    def __init__(self, mode, input, train_data_fn, data_fraction, test_data_fn, ontology_fn, database_fn, batch_size):
         self.ontology = ontology.Ontology(ontology_fn, database_fn)
 
         train_data = load_json_data(train_data_fn)
@@ -227,9 +239,9 @@ class DSTC2:
         test_data = load_json_data(test_data_fn)
         test_data = test_data[:int(len(test_data) * min(data_fraction, 1.0))]
 
-        train_examples = gen_examples(train_data)
-        test_examples = gen_examples(test_data)
-        # self.print_examples(train_examples)
+        train_examples = gen_examples(train_data, input)
+        test_examples = gen_examples(test_data, input)
+        # self.print_examples(train_examples
 
         norm_train_examples = normalize(train_examples)
         norm_train_examples = sort_by_conversation_length(norm_train_examples)

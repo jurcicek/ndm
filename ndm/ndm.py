@@ -26,6 +26,8 @@ flags.DEFINE_string('model', 'cnn-w2w', '"cnn-w2w" (convolutional network for st
 flags.DEFINE_string('task', 'tracker', '"tracker" (dialogue state tracker) | '
                                        '"w2w" (word to word dialogue management) | '
                                        '"w2t" (word to template dialogue management)')
+flags.DEFINE_string('input', 'asr', '"asr" automatically recognised user input | '
+                                    '"trs" manually transcribed user input')
 flags.DEFINE_string('train_data', './data.dstc2.traindev.json', 'The train data the model should be trained on.')
 flags.DEFINE_string('test_data', './data.dstc2.test.json', 'The test data the model should be trained on.')
 flags.DEFINE_float('data_fraction', 0.1, 'The fraction of data to usd to train model.')
@@ -116,51 +118,86 @@ def train(model, targets, idx2word_target):
             print()
 
             if epoch % max(min(int(FLAGS.max_epochs / 100), 100), 1) == 0:
-                print()
-                print('Epoch: {epoch}'.format(epoch=epoch))
-                print('  - learning rate   = {lr:f}'.format(lr=learning_rate.eval()))
-                print('  - use inputs prob = {uip:f}'.format(uip=use_inputs_prob))
-                print('  Train data')
-                lss, acc = sess.run([model.loss, model.accuracy],
-                                    feed_dict={
-                                        model.histories: model.train_set['histories'],
-                                        model.targets: model.train_set[targets],
-                                        model.use_inputs_prob: 1.0,
-                                    })
-                print('    - use inputs prob = {uip:f}'.format(uip=1.0))
-                print('      - accuracy      = {acc:f}'.format(acc=acc))
-                print('      - loss          = {lss:f}'.format(lss=lss))
-                lss, acc = sess.run([model.loss, model.accuracy],
-                                    feed_dict={
-                                        model.histories: model.train_set['histories'],
-                                        model.targets: model.train_set[targets],
-                                        model.use_inputs_prob: 0.0,
-                                    })
-                print('    - use inputs prob = {uip:f}'.format(uip=0.0))
-                print('      - accuracy      = {acc:f}'.format(acc=acc))
-                print('      - loss          = {lss:f}'.format(lss=lss))
-                summary, lss, acc = sess.run([merged, model.loss, model.accuracy],
-                                             feed_dict={
-                                                 model.histories: model.test_set['histories'],
-                                                 model.targets: model.test_set[targets],
-                                                 model.use_inputs_prob: 0.0,
-                                             })
-                writer.add_summary(summary, epoch)
-                print('  Test data')
-                print('    - use inputs prob = {uip:f}'.format(uip=0.0))
-                print('      - accuracy      = {acc:f}'.format(acc=acc))
-                print('      - loss          = {lss:f}'.format(lss=lss))
-                print()
+                if FLAGS.task == 'w2t':
+                    print()
+                    print('Epoch: {epoch}'.format(epoch=epoch))
+                    print('  - learning rate   = {lr:f}'.format(lr=learning_rate.eval()))
+                    print('  Train data')
+                    lss, acc = sess.run([model.loss, model.accuracy],
+                                        feed_dict={
+                                            model.histories: model.train_set['histories'],
+                                            model.targets: model.train_set[targets],
+                                            model.use_inputs_prob: 1.0,
+                                        })
+                    print('    - accuracy      = {acc:f}'.format(acc=acc))
+                    print('    - loss          = {lss:f}'.format(lss=lss))
+                    summary, lss, acc = sess.run([merged, model.loss, model.accuracy],
+                                                 feed_dict={
+                                                     model.histories: model.test_set['histories'],
+                                                     model.targets: model.test_set[targets],
+                                                     model.use_inputs_prob: 0.0,
+                                                 })
+                    writer.add_summary(summary, epoch)
+                    print('  Test data')
+                    print('    - accuracy      = {acc:f}'.format(acc=acc))
+                    print('    - loss          = {lss:f}'.format(lss=lss))
+                    print()
 
-                # decrease learning rate if no improvement was seen over last 3 times.
-                if len(previous_losses) > 2 and lss > max(previous_losses[-3:]):
-                    sess.run(learning_rate_decay_op)
-                previous_losses.append(lss)
+                    # decrease learning rate if no improvement was seen over last 3 times.
+                    if len(previous_losses) > 2 and lss > max(previous_losses[-3:]):
+                        sess.run(learning_rate_decay_op)
+                    previous_losses.append(lss)
 
-                # stop when reached a threshold maximum or when no improvement in the last 20 steps
-                previous_accuracies.append(acc)
-                if acc > 0.9999 or max(previous_accuracies) > max(previous_accuracies[-20:]):
-                    break
+                    # stop when reached a threshold maximum or when no improvement in the last 20 steps
+                    previous_accuracies.append(acc)
+                    if acc > 0.9999 or max(previous_accuracies) > max(previous_accuracies[-20:]):
+                        break
+                else:
+                    print()
+                    print('Epoch: {epoch}'.format(epoch=epoch))
+                    print('  - learning rate   = {lr:f}'.format(lr=learning_rate.eval()))
+                    print('  - use inputs prob = {uip:f}'.format(uip=use_inputs_prob))
+                    print('  Train data')
+                    lss, acc = sess.run([model.loss, model.accuracy],
+                                        feed_dict={
+                                            model.histories: model.train_set['histories'],
+                                            model.targets: model.train_set[targets],
+                                            model.use_inputs_prob: 1.0,
+                                        })
+                    print('    - use inputs prob = {uip:f}'.format(uip=1.0))
+                    print('      - accuracy      = {acc:f}'.format(acc=acc))
+                    print('      - loss          = {lss:f}'.format(lss=lss))
+                    lss, acc = sess.run([model.loss, model.accuracy],
+                                        feed_dict={
+                                            model.histories: model.train_set['histories'],
+                                            model.targets: model.train_set[targets],
+                                            model.use_inputs_prob: 0.0,
+                                        })
+                    print('    - use inputs prob = {uip:f}'.format(uip=0.0))
+                    print('      - accuracy      = {acc:f}'.format(acc=acc))
+                    print('      - loss          = {lss:f}'.format(lss=lss))
+                    summary, lss, acc = sess.run([merged, model.loss, model.accuracy],
+                                                 feed_dict={
+                                                     model.histories: model.test_set['histories'],
+                                                     model.targets: model.test_set[targets],
+                                                     model.use_inputs_prob: 0.0,
+                                                 })
+                    writer.add_summary(summary, epoch)
+                    print('  Test data')
+                    print('    - use inputs prob = {uip:f}'.format(uip=0.0))
+                    print('      - accuracy      = {acc:f}'.format(acc=acc))
+                    print('      - loss          = {lss:f}'.format(lss=lss))
+                    print()
+
+                    # decrease learning rate if no improvement was seen over last 3 times.
+                    if len(previous_losses) > 2 and lss > max(previous_losses[-3:]):
+                        sess.run(learning_rate_decay_op)
+                    previous_losses.append(lss)
+
+                    # stop when reached a threshold maximum or when no improvement in the last 20 steps
+                    previous_accuracies.append(acc)
+                    if acc > 0.9999 or max(previous_accuracies) > max(previous_accuracies[-20:]):
+                        break
 
             use_inputs_prob *= FLAGS.use_inputs_prob_decay
 
@@ -248,6 +285,7 @@ def main(_):
             print('End to End Neural Dialogue Manager')
             print('    model                 = {model}'.format(model=FLAGS.model))
             print('    task                  = {t}'.format(t=FLAGS.task))
+            print('    input                 = {i}'.format(i=FLAGS.input))
             print('    train_data            = {train_data}'.format(train_data=FLAGS.train_data))
             print('    data_fraction         = {data_fraction}'.format(data_fraction=FLAGS.data_fraction))
             print('    test_data             = {test_data}'.format(test_data=FLAGS.test_data))
@@ -269,6 +307,7 @@ def main(_):
             print('-' * 120)
             data = dataset.DSTC2(
                     mode=FLAGS.task,
+                    input=FLAGS.input,
                     train_data_fn=FLAGS.train_data,
                     data_fraction=FLAGS.data_fraction,
                     test_data_fn=FLAGS.test_data,
@@ -298,8 +337,7 @@ def main(_):
                 idx2word_target = data.idx2word_action_template
                 targets = 'actions_template'
             else:
-                print('Error: Unsupported task')
-                sys.exit(1)
+                raise Exception('Error: Unsupported task')
 
             if FLAGS.model == 'cnn-w2w':
                 model = cnn_w2w.Model(data, targets, decoder_vocabulary_length, FLAGS)
@@ -307,22 +345,18 @@ def main(_):
                 model = rnn_w2w.Model(data, targets, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'cnn-w2t':
                 if FLAGS.task != 'w2t':
-                    print('Error: Model cnn-w2t only supports ONLY tasks w2t!')
-                    sys.exit(1)
+                    raise Exception('Error: Model cnn-w2t only supports ONLY tasks w2t!')
                 model = cnn_w2t.Model(data, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'rnn1-w2t':
                 if FLAGS.task != 'w2t':
-                    print('Error: Model rnn1-w2t only supports ONLY tasks w2t!')
-                    sys.exit(1)
+                    raise Exception('Error: Model rnn1-w2t only supports ONLY tasks w2t!')
                 model = rnn1_w2t.Model(data, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'rnn2-w2t':
                 if FLAGS.task != 'w2t':
-                    print('Error: Model rnn2-w2t only supports ONLY tasks w2t!')
-                    sys.exit(1)
+                    raise Exception('Error: Model rnn2-w2t only supports ONLY tasks w2t!')
                 model = rnn2_w2t.Model(data, decoder_vocabulary_length, FLAGS)
             else:
-                print('Error: Unsupported model')
-                sys.exit(1)
+                raise Exception('Error: Unsupported model')
 
             train(model, targets, idx2word_target)
 
