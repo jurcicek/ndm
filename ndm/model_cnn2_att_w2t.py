@@ -35,7 +35,7 @@ class Model:
             database_embedding = multicolumn_embedding(
                     columns=database,
                     lengths=[len(i2w) for i2w in [data.database_idx2word[column] for column in data.database_columns]],
-                    sizes=[3 for column in data.database_columns],  # all columns have the same size
+                    sizes=[8 for column in data.database_columns],  # all columns have the same size
                     name='database_embedding'
             )
 
@@ -92,6 +92,14 @@ class Model:
                 # encoded_history = tf.reshape(mp, [-1, encoder_embedding_size])
 
                 encoded_history = tf.reduce_max(conv3, [1, 2])
+
+            with tf.name_scope("DatabaseAttention"):
+                histories_arguments_embedding = tf.reshape(histories_arguments_embedding, [-1, 10])
+                database_embedding = tf.reshape(database_embedding, [-1, 10])
+
+                attention = tf.concat(1, [encoded_history, histories_arguments_embedding, database_embedding])
+                attention = tf.reshape(attention, [batch_size, -1])
+
 
             with tf.name_scope("Decoder"):
                 use_inputs_prob = tf.placeholder("float32", name='use_inputs_prob')
