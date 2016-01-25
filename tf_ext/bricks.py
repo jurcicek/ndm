@@ -97,7 +97,7 @@ def multicolumn_embedding(columns, lengths, sizes, name='database_embedding'):
             columns_embeddings.append(ce)
 
         y = tf.concat(1, columns_embeddings)
-        y = tf.reshape(y, [-1, sum(sizes)])
+        # y = tf.reshape(y, [-1, sum(sizes)])
 
         y.lengths = lengths
         y.sizes = sizes

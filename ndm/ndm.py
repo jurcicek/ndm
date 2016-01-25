@@ -118,6 +118,7 @@ def train(model, targets, idx2word_target):
                         feed_dict={
                             model.database: model.data.database,
                             model.histories: batch['histories'],
+                            model.histories_arguments: batch['histories_arguments'],
                             model.targets: batch[targets],
                             model.use_inputs_prob: use_inputs_prob,
                         }

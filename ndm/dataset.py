@@ -269,6 +269,7 @@ class DSTC2:
 
         database_data = load_json_data(database_fn)
         database, database_columns, database_idx2word, database_word2idx = gen_database(database_data)
+        database = np.asarray(database, dtype=np.int32)
 
         train_data = load_json_data(train_data_fn)
         train_data = train_data[:int(len(train_data) * min(data_fraction, 1.0))]
