@@ -230,9 +230,45 @@ def add_action_templates(abstract_test_examples):
     return examples
 
 
+def gen_database(database_data):
+    """Convert a discrete database
+
+    :param database_data:
+    :return:
+    """
+    idx2word = defaultdict(set)
+
+    for row in database_data:
+        for column in row:
+            idx2word[column].add(row[column])
+    for column in idx2word:
+        idx2word[column].add('_OOV_')
+
+    for column in idx2word:
+        idx2word[column] = sorted(idx2word[column])
+
+    word2idx = defaultdict(dict)
+    for column in idx2word:
+        word2idx[column] = get_word2idx(idx2word[column])
+
+    columns = sorted(idx2word.keys())
+
+    database = []
+    for row in database_data:
+        r = []
+        for column in columns:
+            idx = word2idx[column][row.get(column, '_OOV_')]
+            r.append(idx)
+        database.append(r)
+
+    return database, columns, idx2word, word2idx
+
 class DSTC2:
     def __init__(self, mode, input, train_data_fn, data_fraction, test_data_fn, ontology_fn, database_fn, batch_size):
         self.ontology = ontology.Ontology(ontology_fn, database_fn)
+
+        database_data = load_json_data(database_fn)
+        database, database_columns, database_idx2word, database_word2idx = gen_database(database_data)
 
         train_data = load_json_data(train_data_fn)
         train_data = train_data[:int(len(train_data) * min(data_fraction, 1.0))]
@@ -381,6 +417,11 @@ class DSTC2:
             'actions_arguments': test_actions_arguments,
             'actions_template': test_actions_template
         }
+
+        self.database = database
+        self.database_columns = database_columns
+        self.database_idx2word = database_idx2word
+        self.database_word2idx = database_word2idx
 
         self.train_set = train_set
         self.train_set_size = len(train_set['histories'])

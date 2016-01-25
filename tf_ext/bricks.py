@@ -68,6 +68,44 @@ def embedding(input, length, size, name='embedding'):
     return y
 
 
+def multicolumn_embedding(columns, lengths, sizes, name='database_embedding'):
+    """Embedding transformation between discrete input in multiple rows (database) and continuous vector representation.
+
+    Note that each column has his own embedding table!
+
+    :param database: input 2-D tensor (e.g. rows are entries in the database, columns are like database columns encoded
+                     using a dictionary)
+    :param lengths: int array, the lengths of the tables representing the embeddings. This is equal to the sizes of
+                    the all discrete entries for individual columns.
+    :param sizes: int array, sizes of vectors representing the discrete inputs.
+    :param name: str, name of the operation
+    """
+    with tf.variable_scope(name):
+        n_columns = len(lengths)
+
+        columns = [columns[:, column] for column in range(n_columns)]
+
+        columns_embeddings = []
+        for i, column, length, size in zip(range(n_columns), columns, lengths, sizes):
+            ce = embedding(
+                    input=column,
+                    length=length,
+                    size=size,
+                    name='database_embedding_column_{i}'.format(i=i)
+            )
+
+            columns_embeddings.append(ce)
+
+        y = tf.concat(1, columns_embeddings)
+        y = tf.reshape(y, [-1, sum(sizes)])
+
+        y.lengths = lengths
+        y.sizes = sizes
+        y.embedding_tables = columns_embeddings
+
+    return y
+
+
 def conv2d(input, filter, strides=[1, 1, 1, 1], name='conv2d'):
     with tf.variable_scope(name):
         W = tf.get_variable(

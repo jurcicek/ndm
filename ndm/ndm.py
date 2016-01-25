@@ -12,6 +12,7 @@ import model_rnn_w2w as rnn_w2w
 import model_cnn0_w2t as cnn0_w2t
 import model_cnn1_w2t as cnn1_w2t
 import model_cnn2_w2t as cnn2_w2t
+import model_cnn2_att_w2t as cnn2_att_w2t
 import model_rnn1_w2t as rnn1_w2t
 import model_rnn2_w2t as rnn2_w2t
 
@@ -25,6 +26,7 @@ flags.DEFINE_string('model', 'cnn-w2w', '"cnn-w2w" (convolutional network for st
                                         '"cnn0-w2t" (convolutional network for state tracking - words 2 template | '
                                         '"cnn1-w2t" (convolutional network for state tracking - words 2 template | '
                                         '"cnn2-w2t" (convolutional network for state tracking - words 2 template | '
+                                        '"cnn2-att-w2t" (convolutional network for state tracking with attention model - words 2 template | '
                                         '"rnn1-w2t" (forward only recurrent network for state tracking - words 2 template | '
                                         '"rnn2-w2t" (bidirectional recurrent network for state tracking - words 2 template)')
 flags.DEFINE_string('task', 'tracker', '"tracker" (dialogue state tracker) | '
@@ -39,7 +41,7 @@ flags.DEFINE_string('ontology', './data.dstc2.ontology.json', 'The ontology defi
 flags.DEFINE_string('database', './data.dstc2.db.json', 'The backend database defining entries that can be queried.')
 flags.DEFINE_integer('max_epochs', 100, 'Number of epochs to run trainer.')
 flags.DEFINE_integer('batch_size', 32, 'Number of training examples in a batch.')
-flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
+flags.DEFINE_float('learning_rate', 1e-5, 'Initial learning rate.')
 flags.DEFINE_float('decay', 0.9, 'AdamPlusOptimizer learning rate decay.')
 flags.DEFINE_float('beta1', 0.9, 'AdamPlusOptimizer 1st moment decay.')
 flags.DEFINE_float('beta2', 0.999, 'AdamPlusOptimizer 2nd moment decay.')
@@ -114,6 +116,7 @@ def train(model, targets, idx2word_target):
                 sess.run(
                         train_op,
                         feed_dict={
+                            model.database: model.data.database,
                             model.histories: batch['histories'],
                             model.targets: batch[targets],
                             model.use_inputs_prob: use_inputs_prob,
@@ -320,6 +323,8 @@ def main(_):
                     batch_size=FLAGS.batch_size
             )
 
+            print('Database # rows:              ', len(data.database))
+            print('Database # columns:           ', len(data.database_word2idx.keys()))
             print('History vocabulary size:      ', len(data.idx2word_history))
             print('History args. vocabulary size:', len(data.idx2word_history_arguments))
             print('State vocabulary size:        ', len(data.idx2word_state))
@@ -359,6 +364,10 @@ def main(_):
                 if FLAGS.task != 'w2t':
                     raise Exception('Error: Model cnn2-w2t only supports ONLY tasks w2t!')
                 model = cnn2_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn2-att-w2t':
+                if FLAGS.task != 'w2t':
+                    raise Exception('Error: Model cnn2-att-w2t only supports ONLY tasks w2t!')
+                model = cnn2_att_w2t.Model(data, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'rnn1-w2t':
                 if FLAGS.task != 'w2t':
                     raise Exception('Error: Model rnn1-w2t only supports ONLY tasks w2t!')
