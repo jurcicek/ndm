@@ -18,7 +18,9 @@ class Model:
 
         # inference model
         with tf.name_scope('model'):
+            database = tf.placeholder("int32", name='database')
             histories = tf.placeholder("int32", name='histories')
+            histories_arguments = tf.placeholder("int32", name='histories_arguments')
             targets = tf.placeholder("int32", name='true_targets')
             use_dropout_prob = tf.placeholder("float32", name='use_dropout_prob')
 
@@ -119,6 +121,9 @@ class Model:
             tf.scalar_summary('accuracy', accuracy)
 
         self.data = data
+
+        self.database = database
+
         self.train_set = data.train_set
         self.dev_set = data.dev_set
         self.test_set = data.test_set
@@ -126,6 +131,9 @@ class Model:
         self.history_length = history_length
         self.encoder_sequence_length = encoder_sequence_length
         self.histories = histories
+        self.histories_arguments = histories_arguments
+        self.attention = None #attention
+        self.db_result = None #db_result
         self.targets = targets
         self.use_dropout_prob = use_dropout_prob
         self.batch_size = batch_size

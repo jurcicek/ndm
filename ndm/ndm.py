@@ -46,7 +46,7 @@ flags.DEFINE_float('decay', 0.9, 'AdamPlusOptimizer learning rate decay.')
 flags.DEFINE_float('beta1', 0.9, 'AdamPlusOptimizer 1st moment decay.')
 flags.DEFINE_float('beta2', 0.999, 'AdamPlusOptimizer 2nd moment decay.')
 flags.DEFINE_float('epsilon', 1e-5, 'AdamPlusOptimizer epsilon.')
-flags.DEFINE_float('pow', 0.9, 'AdamPlusOptimizer pow.')
+flags.DEFINE_float('pow', 0.999, 'AdamPlusOptimizer pow.')
 flags.DEFINE_float('dense_regularization', 1e-16, 'Weight of regularization for dense updates.')
 flags.DEFINE_float('sparse_regularization', 1e-16, 'Weight of regularization foir sparse updates.')
 flags.DEFINE_float('max_gradient_norm', 5e0, 'Clip gradients to this norm.')
@@ -77,8 +77,8 @@ def train(model, targets, idx2word_target):
         # t_vars = [v for v in t_vars if 'embedding_table' not in v.name] # all variables except embeddings
         learning_rate = tf.Variable(float(FLAGS.learning_rate), trainable=False)
 
-        # train_op = AdamPlusOptimizer(
-        train_op = AdamPlusCovOptimizer(
+        train_op = AdamPlusOptimizer(
+        # train_op = AdamPlusCovOptimizer(
                 learning_rate=learning_rate,
                 beta1=FLAGS.beta1,
                 beta2=FLAGS.beta2,
@@ -114,7 +114,7 @@ def train(model, targets, idx2word_target):
             for b, batch in enumerate(model.data.iter_train_batches()):
                 print(b, end=' ', flush=True)
                 sess.run(
-                        [train_op, model.db_result],
+                        [train_op],
                         feed_dict={
                             model.database: model.data.database,
                             model.histories: batch['histories'],

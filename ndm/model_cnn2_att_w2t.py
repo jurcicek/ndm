@@ -148,12 +148,14 @@ class Model:
                 use_inputs_prob = tf.placeholder("float32", name='use_inputs_prob')
 
                 dialogue_state = tf.concat(1, [encoded_history, attention_feat, db_result], name='dialogue_state')
+                # dialogue_state = tf.concat(1, [encoded_history, attention_feat], name='dialogue_state')
 
                 activation = tf.nn.relu(dialogue_state)
 
                 projection = linear(
                         input=activation,
                         input_size=histories_embedding_size + 3 + att_W_ny,
+                        # input_size=histories_embedding_size + 3,
                         output_size=histories_embedding_size,
                         name='linear_projection_1'
                 )
