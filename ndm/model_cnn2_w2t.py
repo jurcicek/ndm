@@ -22,7 +22,7 @@ class Model:
             histories = tf.placeholder("int32", name='histories')
             histories_arguments = tf.placeholder("int32", name='histories_arguments')
             targets = tf.placeholder("int32", name='true_targets')
-            use_dropout_prob = tf.placeholder("float32", name='use_dropout_prob')
+            dropout_keep_prob = tf.placeholder("float32", name='dropout_keep_prob')
 
             with tf.variable_scope("batch_size"):
                 batch_size = tf.shape(histories)[0]
@@ -79,6 +79,7 @@ class Model:
 
                 # decode all histories along the utterance axis
                 activation = tf.nn.relu(encoded_history)
+                activation = tf.nn.dropout(activation, dropout_keep_prob)
 
                 projection = linear(
                         input=activation,
@@ -87,6 +88,7 @@ class Model:
                         name='linear_projection_1'
                 )
                 activation = tf.nn.relu(projection)
+                activation = tf.nn.dropout(activation, dropout_keep_prob)
 
                 projection = linear(
                         input=activation,
@@ -95,6 +97,7 @@ class Model:
                         name='linear_projection_2'
                 )
                 activation = tf.nn.relu(projection)
+                activation = tf.nn.dropout(activation, dropout_keep_prob)
 
                 projection = linear(
                         input=activation,
@@ -135,7 +138,7 @@ class Model:
         self.attention = None #attention
         self.db_result = None #db_result
         self.targets = targets
-        self.use_dropout_prob = use_dropout_prob
+        self.dropout_keep_prob = dropout_keep_prob
         self.batch_size = batch_size
         self.use_inputs_prob = use_inputs_prob
         self.predictions = predictions

@@ -31,7 +31,7 @@ class Model:
             histories = tf.placeholder("int32", name='histories')
             histories_arguments = tf.placeholder("int32", name='histories_arguments')
             targets = tf.placeholder("int32", name='true_targets')
-            use_dropout_prob = tf.placeholder("float32", name='use_dropout_prob')
+            dropout_keep_prob = tf.placeholder("float32", name='dropout_keep_prob')
 
             with tf.variable_scope("batch_size"):
                 batch_size = tf.shape(histories)[0]
@@ -151,6 +151,7 @@ class Model:
                 # dialogue_state = tf.concat(1, [encoded_history, attention_feat], name='dialogue_state')
 
                 activation = tf.nn.relu(dialogue_state)
+                activation = tf.nn.dropout(activation, dropout_keep_prob)
 
                 projection = linear(
                         input=activation,
@@ -160,6 +161,7 @@ class Model:
                         name='linear_projection_1'
                 )
                 activation = tf.nn.relu(projection)
+                activation = tf.nn.dropout(activation, dropout_keep_prob)
 
                 projection = linear(
                         input=activation,
@@ -168,6 +170,7 @@ class Model:
                         name='linear_projection_2'
                 )
                 activation = tf.nn.relu(projection)
+                activation = tf.nn.dropout(activation, dropout_keep_prob)
 
                 projection = linear(
                         input=activation,
@@ -208,7 +211,7 @@ class Model:
         self.attention = attention
         self.db_result = db_result
         self.targets = targets
-        self.use_dropout_prob = use_dropout_prob
+        self.dropout_keep_prob = dropout_keep_prob
         self.batch_size = batch_size
         self.use_inputs_prob = use_inputs_prob
         self.predictions = predictions

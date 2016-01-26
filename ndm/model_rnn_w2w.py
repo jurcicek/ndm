@@ -30,7 +30,7 @@ class Model:
         with tf.name_scope('model'):
             histories = tf.placeholder("int32", name='histories')
             targets = tf.placeholder("int32", name='true_targets')
-            use_dropout_prob = tf.placeholder("float32", name='use_dropout_prob')
+            dropout_keep_prob = tf.placeholder("float32", name='dropout_keep_prob')
 
             with tf.variable_scope("batch_size"):
                 batch_size = tf.shape(histories)[0]
@@ -203,7 +203,7 @@ class Model:
         self.encoder_sequence_length = encoder_sequence_length
         self.histories = histories
         self.targets = targets
-        self.use_dropout_prob = use_dropout_prob
+        self.dropout_keep_prob = dropout_keep_prob
         self.batch_size = batch_size
         self.use_inputs_prob = use_inputs_prob
         self.predictions = predictions

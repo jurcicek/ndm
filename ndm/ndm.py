@@ -52,6 +52,7 @@ flags.DEFINE_float('sparse_regularization', 1e-16, 'Weight of regularization foi
 flags.DEFINE_float('max_gradient_norm', 5e0, 'Clip gradients to this norm.')
 flags.DEFINE_float('use_inputs_prob_decay', 0.999, 'Decay of the probability of using '
                                                    'the true targets during generation.')
+flags.DEFINE_float('dropout_keep_prob', 0.5, '1 - probability of dropout during training.')
 flags.DEFINE_boolean('print_variables', False, 'Print all trainable variables.')
 
 """
@@ -121,6 +122,7 @@ def train(model, targets, idx2word_target):
                             model.histories_arguments: batch['histories_arguments'],
                             model.targets: batch[targets],
                             model.use_inputs_prob: use_inputs_prob,
+                            model.dropout_keep_prob: FLAGS.dropout_keep_prob,
                         }
                 )
             print()
@@ -138,6 +140,7 @@ def train(model, targets, idx2word_target):
                                             model.histories_arguments: model.train_set['histories_arguments'],
                                             model.targets: model.train_set[targets],
                                             model.use_inputs_prob: 1.0,
+                                            model.dropout_keep_prob: 1.0,
                                         })
                     print('    - accuracy      = {acc:f}'.format(acc=acc))
                     print('    - loss          = {lss:f}'.format(lss=lss))
@@ -148,6 +151,7 @@ def train(model, targets, idx2word_target):
                                                      model.histories_arguments: model.test_set['histories_arguments'],
                                                      model.targets: model.test_set[targets],
                                                      model.use_inputs_prob: 0.0,
+                                                     model.dropout_keep_prob: 1.0,
                                                  })
                     writer.add_summary(summary, epoch)
                     print('  Test data')
@@ -177,6 +181,7 @@ def train(model, targets, idx2word_target):
                                             model.histories_arguments: model.train_set['histories_arguments'],
                                             model.targets: model.train_set[targets],
                                             model.use_inputs_prob: 1.0,
+                                            model.dropout_keep_prob: 1.0,
                                         })
                     print('    - use inputs prob = {uip:f}'.format(uip=1.0))
                     print('      - accuracy      = {acc:f}'.format(acc=acc))
@@ -188,6 +193,7 @@ def train(model, targets, idx2word_target):
                                             model.histories_arguments: model.train_set['histories_arguments'],
                                             model.targets: model.train_set[targets],
                                             model.use_inputs_prob: 0.0,
+                                            model.dropout_keep_prob: 1.0,
                                         })
                     print('    - use inputs prob = {uip:f}'.format(uip=0.0))
                     print('      - accuracy      = {acc:f}'.format(acc=acc))
@@ -199,6 +205,7 @@ def train(model, targets, idx2word_target):
                                                      model.histories_arguments: model.test_set['histories_arguments'],
                                                      model.targets: model.test_set[targets],
                                                      model.use_inputs_prob: 0.0,
+                                                     model.dropout_keep_prob: 1.0,
                                                  })
                     writer.add_summary(summary, epoch)
                     print('  Test data')
@@ -237,6 +244,7 @@ def train(model, targets, idx2word_target):
                                    model.histories_arguments: model.test_set['histories_arguments'],
                                    model.targets: model.test_set[targets],
                                    model.use_inputs_prob: 0.0,
+                                   model.dropout_keep_prob: 1.0,
                                })
 
         if FLAGS.task == 'w2w':
@@ -324,6 +332,7 @@ def main(_):
             print('    max_gradient_norm     = {max_gradient_norm}'.format(max_gradient_norm=FLAGS.max_gradient_norm))
             print('    use_inputs_prob_decay = {use_inputs_prob_decay}'.format(
                     use_inputs_prob_decay=FLAGS.use_inputs_prob_decay))
+            print('    dropout_keep_prob     = {dropout_keep_prob}'.format(dropout_keep_prob=FLAGS.dropout_keep_prob))
             print('-' * 120)
             data = dataset.DSTC2(
                     mode=FLAGS.task,
