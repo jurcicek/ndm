@@ -64,8 +64,8 @@ There are several models available:
 
 def train(model, targets, idx2word_target):
     # with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-    with tf.Session(config=tf.ConfigProto(inter_op_parallelism_threads=1,
-                                          intra_op_parallelism_threads=1,
+    with tf.Session(config=tf.ConfigProto(inter_op_parallelism_threads=2,
+                                          intra_op_parallelism_threads=2,
                                           use_per_session_threads=True)) as sess:
         # Merge all the summaries and write them out to ./log
         merged = tf.merge_all_summaries()
@@ -114,7 +114,7 @@ def train(model, targets, idx2word_target):
             for b, batch in enumerate(model.data.iter_train_batches()):
                 print(b, end=' ', flush=True)
                 sess.run(
-                        train_op,
+                        [train_op, model.db_result],
                         feed_dict={
                             model.database: model.data.database,
                             model.histories: batch['histories'],
@@ -133,7 +133,9 @@ def train(model, targets, idx2word_target):
                     print('  Train data')
                     lss, acc = sess.run([model.loss, model.accuracy],
                                         feed_dict={
+                                            model.database: model.data.database,
                                             model.histories: model.train_set['histories'],
+                                            model.histories_arguments: model.train_set['histories_arguments'],
                                             model.targets: model.train_set[targets],
                                             model.use_inputs_prob: 1.0,
                                         })
@@ -141,7 +143,9 @@ def train(model, targets, idx2word_target):
                     print('    - loss          = {lss:f}'.format(lss=lss))
                     summary, lss, acc = sess.run([merged, model.loss, model.accuracy],
                                                  feed_dict={
+                                                     model.database: model.data.database,
                                                      model.histories: model.test_set['histories'],
+                                                     model.histories_arguments: model.test_set['histories_arguments'],
                                                      model.targets: model.test_set[targets],
                                                      model.use_inputs_prob: 0.0,
                                                  })
@@ -168,7 +172,9 @@ def train(model, targets, idx2word_target):
                     print('  Train data')
                     lss, acc = sess.run([model.loss, model.accuracy],
                                         feed_dict={
+                                            model.database: model.data.database,
                                             model.histories: model.train_set['histories'],
+                                            model.histories_arguments: model.train_set['histories_arguments'],
                                             model.targets: model.train_set[targets],
                                             model.use_inputs_prob: 1.0,
                                         })
@@ -177,7 +183,9 @@ def train(model, targets, idx2word_target):
                     print('      - loss          = {lss:f}'.format(lss=lss))
                     lss, acc = sess.run([model.loss, model.accuracy],
                                         feed_dict={
+                                            model.database: model.data.database,
                                             model.histories: model.train_set['histories'],
+                                            model.histories_arguments: model.train_set['histories_arguments'],
                                             model.targets: model.train_set[targets],
                                             model.use_inputs_prob: 0.0,
                                         })
@@ -186,7 +194,9 @@ def train(model, targets, idx2word_target):
                     print('      - loss          = {lss:f}'.format(lss=lss))
                     summary, lss, acc = sess.run([merged, model.loss, model.accuracy],
                                                  feed_dict={
+                                                     model.database: model.data.database,
                                                      model.histories: model.test_set['histories'],
+                                                     model.histories_arguments: model.test_set['histories_arguments'],
                                                      model.targets: model.test_set[targets],
                                                      model.use_inputs_prob: 0.0,
                                                  })
@@ -222,7 +232,9 @@ def train(model, targets, idx2word_target):
         print('Predictions')
         predictions = sess.run(model.predictions,
                                feed_dict={
+                                   model.database: model.data.database,
                                    model.histories: model.test_set['histories'],
+                                   model.histories_arguments: model.test_set['histories_arguments'],
                                    model.targets: model.test_set[targets],
                                    model.use_inputs_prob: 0.0,
                                })
