@@ -36,41 +36,35 @@ class Model:
 
             with tf.name_scope("UtterancesEncoder"):
                 conv3 = encoder_embedding
+                conv3 = tf.nn.dropout(conv3, dropout_keep_prob)
                 conv3 = conv2d(
                         input=conv3,
                         filter=[1, 3, encoder_embedding_size, encoder_embedding_size],
                         name='conv_utt_size_3_layer_1'
                 )
+                conv3 = tf.nn.dropout(conv3, dropout_keep_prob)
                 conv3 = conv2d(
                         input=conv3,
                         filter=[1, 3, encoder_embedding_size, encoder_embedding_size],
                         name='conv_utt_size_3_layer_2'
                 )
-                # print(conv3)
-                # k = encoder_sequence_length
-                # mp = max_pool(conv3, ksize=[1, 1, k, 1], strides=[1, 1, k, 1])
-                # print(mp)
-                # encoded_utterances = mp
 
                 encoded_utterances = tf.reduce_max(conv3, [2], keep_dims=True)
 
             with tf.name_scope("HistoryEncoder"):
                 conv3 = encoded_utterances
+                conv3 = tf.nn.dropout(conv3, dropout_keep_prob)
                 conv3 = conv2d(
                         input=conv3,
                         filter=[3, 1, encoder_embedding_size, encoder_embedding_size],
                         name='conv_hist_size_3_layer_1'
                 )
+                conv3 = tf.nn.dropout(conv3, dropout_keep_prob)
                 conv3 = conv2d(
                         input=conv3,
                         filter=[3, 1, encoder_embedding_size, encoder_embedding_size],
                         name='conv_hist_size_3_layer_2'
                 )
-                # print(conv3)
-                # k = encoder_sequence_length
-                # mp = max_pool(conv3, ksize=[1, 1, k, 1], strides=[1, 1, k, 1])
-                # print(mp)
-                # encoded_history = tf.reshape(mp, [-1, encoder_embedding_size])
 
                 encoded_history = tf.reduce_max(conv3, [1, 2])
 

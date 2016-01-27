@@ -60,11 +60,13 @@ class Model:
 
             with tf.name_scope("UtterancesEncoder"):
                 conv3 = histories_embedding
+                conv3 = tf.nn.dropout(conv3, dropout_keep_prob)
                 conv3 = conv2d(
                         input=conv3,
                         filter=[1, 3, histories_embedding_size, histories_embedding_size],
                         name='conv_utt_size_3_layer_1'
                 )
+                conv3 = tf.nn.dropout(conv3, dropout_keep_prob)
                 conv3 = conv2d(
                         input=conv3,
                         filter=[1, 3, histories_embedding_size, histories_embedding_size],
@@ -80,11 +82,13 @@ class Model:
 
             with tf.name_scope("HistoryEncoder"):
                 conv3 = encoded_utterances
+                conv3 = tf.nn.dropout(conv3, dropout_keep_prob)
                 conv3 = conv2d(
                         input=conv3,
                         filter=[3, 1, histories_embedding_size, histories_embedding_size],
                         name='conv_hist_size_3_layer_1'
                 )
+                conv3 = tf.nn.dropout(conv3, dropout_keep_prob)
                 conv3 = conv2d(
                         input=conv3,
                         filter=[3, 1, histories_embedding_size, histories_embedding_size],

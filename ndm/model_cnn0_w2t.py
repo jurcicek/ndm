@@ -18,7 +18,9 @@ class Model:
 
         # inference model
         with tf.name_scope('model'):
+            database = tf.placeholder("int32", name='database')
             histories = tf.placeholder("int32", name='histories')
+            histories_arguments = tf.placeholder("int32", name='histories_arguments')
             targets = tf.placeholder("int32", name='true_targets')
             dropout_keep_prob = tf.placeholder("float32", name='dropout_keep_prob')
 
@@ -34,31 +36,18 @@ class Model:
 
             with tf.name_scope("UtterancesEncoder"):
                 conv3 = encoder_embedding
-                # conv3 = conv2d(
-                #         input=conv3,
-                #         filter=[1, 3, encoder_embedding_size, encoder_embedding_size],
-                #         name='conv_utt_size_3_layer_1'
-                # )
-                # conv3 = conv2d(
-                #         input=conv3,
-                #         filter=[1, 3, encoder_embedding_size, encoder_embedding_size],
-                #         name='conv_utt_size_3_layer_2'
-                # )
-                # print(conv3)
-                # k = encoder_sequence_length
-                # mp = max_pool(conv3, ksize=[1, 1, k, 1], strides=[1, 1, k, 1])
-                # print(mp)
-                # encoded_utterances = mp
 
                 encoded_utterances = tf.reduce_max(conv3, [2], keep_dims=True)
 
             with tf.name_scope("HistoryEncoder"):
                 conv3 = encoded_utterances
+                conv3 = tf.nn.dropout(conv3, dropout_keep_prob)
                 conv3 = conv2d(
                         input=conv3,
                         filter=[3, 1, encoder_embedding_size, encoder_embedding_size],
                         name='conv_hist_size_3_layer_1'
                 )
+                conv3 = tf.nn.dropout(conv3, dropout_keep_prob)
                 conv3 = conv2d(
                         input=conv3,
                         filter=[3, 1, encoder_embedding_size, encoder_embedding_size],
@@ -77,6 +66,7 @@ class Model:
 
                 # decode all histories along the utterance axis
                 activation = tf.nn.relu(encoded_history)
+                activation = tf.nn.dropout(activation, dropout_keep_prob)
 
                 projection = linear(
                         input=activation,
@@ -85,6 +75,7 @@ class Model:
                         name='linear_projection_1'
                 )
                 activation = tf.nn.relu(projection)
+                activation = tf.nn.dropout(activation, dropout_keep_prob)
 
                 projection = linear(
                         input=activation,
@@ -93,6 +84,7 @@ class Model:
                         name='linear_projection_2'
                 )
                 activation = tf.nn.relu(projection)
+                activation = tf.nn.dropout(activation, dropout_keep_prob)
 
                 projection = linear(
                         input=activation,
@@ -119,6 +111,9 @@ class Model:
             tf.scalar_summary('accuracy', accuracy)
 
         self.data = data
+
+        self.database = database
+
         self.train_set = data.train_set
         self.dev_set = data.dev_set
         self.test_set = data.test_set
@@ -126,6 +121,9 @@ class Model:
         self.history_length = history_length
         self.encoder_sequence_length = encoder_sequence_length
         self.histories = histories
+        self.histories_arguments = histories_arguments
+        self.attention = None #attention
+        self.db_result = None #db_result
         self.targets = targets
         self.dropout_keep_prob = dropout_keep_prob
         self.batch_size = batch_size

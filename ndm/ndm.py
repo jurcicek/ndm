@@ -11,8 +11,8 @@ import model_cnn_w2w as cnn_w2w
 import model_rnn_w2w as rnn_w2w
 import model_cnn0_w2t as cnn0_w2t
 import model_cnn1_w2t as cnn1_w2t
+import model_cnn1_att_a_w2t as cnn1_att_a_w2t
 import model_cnn2_w2t as cnn2_w2t
-import model_cnn2_att_w2t as cnn2_att_w2t
 import model_rnn1_w2t as rnn1_w2t
 import model_rnn2_w2t as rnn2_w2t
 
@@ -25,8 +25,8 @@ flags.DEFINE_string('model', 'cnn-w2w', '"cnn-w2w" (convolutional network for st
                                         '"rnn-w2w" (bidirectional recurrent network for state tracking - words 2 words) | '
                                         '"cnn0-w2t" (convolutional network for state tracking - words 2 template | '
                                         '"cnn1-w2t" (convolutional network for state tracking - words 2 template | '
+                                        '"cnn1-att-a-w2t" (convolutional network for state tracking with attention model - words 2 template | '
                                         '"cnn2-w2t" (convolutional network for state tracking - words 2 template | '
-                                        '"cnn2-att-w2t" (convolutional network for state tracking with attention model - words 2 template | '
                                         '"rnn1-w2t" (forward only recurrent network for state tracking - words 2 template | '
                                         '"rnn2-w2t" (bidirectional recurrent network for state tracking - words 2 template)')
 flags.DEFINE_string('task', 'tracker', '"tracker" (dialogue state tracker) | '
@@ -46,13 +46,13 @@ flags.DEFINE_float('decay', 0.9, 'AdamPlusOptimizer learning rate decay.')
 flags.DEFINE_float('beta1', 0.9, 'AdamPlusOptimizer 1st moment decay.')
 flags.DEFINE_float('beta2', 0.999, 'AdamPlusOptimizer 2nd moment decay.')
 flags.DEFINE_float('epsilon', 1e-5, 'AdamPlusOptimizer epsilon.')
-flags.DEFINE_float('pow', 0.999, 'AdamPlusOptimizer pow.')
+flags.DEFINE_float('pow', 1.0, 'AdamPlusOptimizer pow.')
 flags.DEFINE_float('dense_regularization', 1e-16, 'Weight of regularization for dense updates.')
 flags.DEFINE_float('sparse_regularization', 1e-16, 'Weight of regularization foir sparse updates.')
 flags.DEFINE_float('max_gradient_norm', 5e0, 'Clip gradients to this norm.')
 flags.DEFINE_float('use_inputs_prob_decay', 0.999, 'Decay of the probability of using '
                                                    'the true targets during generation.')
-flags.DEFINE_float('dropout_keep_prob', 0.5, '1 - probability of dropout during training.')
+flags.DEFINE_float('dropout_keep_prob', 1.0, '(1 - dropout_keep_prob) is the probability of dropout during training.')
 flags.DEFINE_boolean('print_variables', False, 'Print all trainable variables.')
 
 """
@@ -382,14 +382,18 @@ def main(_):
                 if FLAGS.task != 'w2t':
                     raise Exception('Error: Model cnn1-w2t only supports ONLY tasks w2t!')
                 model = cnn1_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn1-att-a-w2t':
+                if FLAGS.task != 'w2t':
+                    raise Exception('Error: Model cnn1-att-a-w2t only supports ONLY tasks w2t!')
+                model = cnn1_att_a_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn1-att-b-w2t':
+                if FLAGS.task != 'w2t':
+                    raise Exception('Error: Model cnn1-att-b-w2t only supports ONLY tasks w2t!')
+                model = cnn1_att_b_w2t.Model(data, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'cnn2-w2t':
                 if FLAGS.task != 'w2t':
                     raise Exception('Error: Model cnn2-w2t only supports ONLY tasks w2t!')
                 model = cnn2_w2t.Model(data, decoder_vocabulary_length, FLAGS)
-            elif FLAGS.model == 'cnn2-att-w2t':
-                if FLAGS.task != 'w2t':
-                    raise Exception('Error: Model cnn2-att-w2t only supports ONLY tasks w2t!')
-                model = cnn2_att_w2t.Model(data, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'rnn1-w2t':
                 if FLAGS.task != 'w2t':
                     raise Exception('Error: Model rnn1-w2t only supports ONLY tasks w2t!')
