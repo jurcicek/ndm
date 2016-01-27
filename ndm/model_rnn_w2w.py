@@ -14,8 +14,8 @@ class Model:
         with tf.variable_scope("history_length"):
             history_length = data.train_set['histories'].shape[1]
 
-        encoder_lstm_size = 16
         encoder_embedding_size = 16 * 2
+        encoder_lstm_size = 16
         encoder_vocabulary_length = len(data.idx2word_history)
         with tf.variable_scope("encoder_sequence_length"):
             encoder_sequence_length = data.train_set['histories'].shape[2]

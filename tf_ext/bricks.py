@@ -12,6 +12,22 @@ def glorot_mul(n1, n2):
     return math.sqrt(3) / math.sqrt(float(n1 * n2))
 
 
+def dropout(x, keep_prob, noise_shape=None, seed=None, name=None):
+    d = tf.nn.dropout(x, keep_prob, noise_shape, seed, name)
+
+    d.size = getattr(x, 'size', None)
+
+    return d
+
+
+def reduce_max(input_tensor, reduction_indices=None, keep_dims=False, name=None):
+    r = tf.reduce_max(input_tensor, reduction_indices, keep_dims, name)
+
+    r.size = getattr(input_tensor, 'size', None)
+
+    return r
+
+
 def linear(input, input_size, output_size, name='linear'):
     """Creates a linear transformation between two layers in a neural network.
 
@@ -97,7 +113,6 @@ def multicolumn_embedding(columns, lengths, sizes, name='database_embedding'):
             columns_embeddings.append(ce)
 
         y = tf.concat(1, columns_embeddings)
-        # y = tf.reshape(y, [-1, sum(sizes)])
 
         y.lengths = lengths
         y.sizes = sizes
@@ -117,8 +132,7 @@ def conv2d(input, filter, strides=[1, 1, 1, 1], name='conv2d'):
         b = tf.get_variable(
                 name='B',
                 shape=filter[-1],
-                # initializer=tf.truncated_normal_initializer(stddev=1e-9 / glorot_mul(3, 3))
-                initializer=tf.truncated_normal_initializer()
+                initializer=tf.truncated_normal_initializer(stddev=1e-9 / glorot_mul(3, 3))
         )
 
         # y = tf.nn.relu6(tf.nn.bias_add(tf.nn.conv2d(input, W, strides=strides, padding='SAME'), b))
@@ -126,6 +140,7 @@ def conv2d(input, filter, strides=[1, 1, 1, 1], name='conv2d'):
 
         y.filter = filter
         y.strides = strides
+        y.size = filter[-1]
         y.W = W
         y.b = b
 

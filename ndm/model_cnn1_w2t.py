@@ -3,7 +3,7 @@ import sys
 
 import tensorflow as tf
 
-from tf_ext.bricks import embedding, dense_to_one_hot, linear, conv2d, max_pool
+from tf_ext.bricks import embedding, dense_to_one_hot, linear, conv2d, dropout, reduce_max
 
 
 class Model:
@@ -11,10 +11,11 @@ class Model:
         with tf.variable_scope("history_length"):
             history_length = data.train_set['histories'].shape[1]
 
-        encoder_embedding_size = 16
-        encoder_vocabulary_length = len(data.idx2word_history)
+        conv_mul = 2
+        histories_embedding_size = 16
+        histories_vocabulary_length = len(data.idx2word_history)
         with tf.variable_scope("encoder_sequence_length"):
-            encoder_sequence_length = data.train_set['histories'].shape[2]
+            histories_utterance_length = data.train_set['histories'].shape[2]
 
         # inference model
         with tf.name_scope('model'):
@@ -29,67 +30,75 @@ class Model:
 
             encoder_embedding = embedding(
                     input=histories,
-                    length=encoder_vocabulary_length,
-                    size=encoder_embedding_size,
+                    length=histories_vocabulary_length,
+                    size=histories_embedding_size,
                     name='encoder_embedding'
             )
 
             with tf.name_scope("UtterancesEncoder"):
                 conv3 = encoder_embedding
-                conv3 = tf.nn.dropout(conv3, dropout_keep_prob)
+                # conv3 = dropout(conv3, dropout_keep_prob)
                 conv3 = conv2d(
                         input=conv3,
-                        filter=[1, 3, encoder_embedding_size, encoder_embedding_size],
+                        filter=[1, 3, conv3.size, conv3.size * conv_mul],
                         name='conv_utt_size_3_layer_1'
                 )
 
-                encoded_utterances = tf.reduce_max(conv3, [2], keep_dims=True)
+                encoded_utterances = reduce_max(conv3, [2], keep_dims=True)
 
             with tf.name_scope("HistoryEncoder"):
                 conv3 = encoded_utterances
-                conv3 = tf.nn.dropout(conv3, dropout_keep_prob)
+                conv3 = dropout(conv3, dropout_keep_prob)
                 conv3 = conv2d(
                         input=conv3,
-                        filter=[3, 1, encoder_embedding_size, encoder_embedding_size],
+                        filter=[3, 1, conv3.size, conv3.size * conv_mul],
                         name='conv_hist_size_3_layer_1'
                 )
-                conv3 = tf.nn.dropout(conv3, dropout_keep_prob)
+                conv3 = dropout(conv3, dropout_keep_prob)
                 conv3 = conv2d(
                         input=conv3,
-                        filter=[3, 1, encoder_embedding_size, encoder_embedding_size],
+                        filter=[3, 1, conv3.size, conv3.size * conv_mul],
                         name='conv_hist_size_3_layer_2'
                 )
 
-                encoded_history = tf.reduce_max(conv3, [1, 2])
+                encoded_history = reduce_max(conv3, [1, 2])
 
             with tf.name_scope("Decoder"):
                 use_inputs_prob = tf.placeholder("float32", name='use_inputs_prob')
 
+                last_user_utterance = encoded_utterances[:, history_length - 1, 0, :]
+
+                dialogue_state = tf.concat(
+                        1,
+                        [encoded_history, last_user_utterance],
+                        name='dialogue_state'
+                )
+                dialogue_state_size = conv3.size + histories_embedding_size * conv_mul
                 # decode all histories along the utterance axis
-                activation = tf.nn.relu(encoded_history)
-                activation = tf.nn.dropout(activation, dropout_keep_prob)
+                activation = tf.nn.relu(dialogue_state)
+                activation = dropout(activation, dropout_keep_prob)
 
                 projection = linear(
                         input=activation,
-                        input_size=encoder_embedding_size,
-                        output_size=encoder_embedding_size,
+                        input_size=dialogue_state_size,
+                        output_size=dialogue_state_size,
                         name='linear_projection_1'
                 )
                 activation = tf.nn.relu(projection)
-                activation = tf.nn.dropout(activation, dropout_keep_prob)
+                activation = dropout(activation, dropout_keep_prob)
 
                 projection = linear(
                         input=activation,
-                        input_size=encoder_embedding_size,
-                        output_size=encoder_embedding_size,
+                        input_size=dialogue_state_size,
+                        output_size=dialogue_state_size,
                         name='linear_projection_2'
                 )
                 activation = tf.nn.relu(projection)
-                activation = tf.nn.dropout(activation, dropout_keep_prob)
+                activation = dropout(activation, dropout_keep_prob)
 
                 projection = linear(
                         input=activation,
-                        input_size=encoder_embedding_size,
+                        input_size=dialogue_state_size,
                         output_size=decoder_vocabulary_length,
                         name='linear_projection_3'
                 )
@@ -120,11 +129,11 @@ class Model:
         self.test_set = data.test_set
 
         self.history_length = history_length
-        self.encoder_sequence_length = encoder_sequence_length
+        self.encoder_sequence_length = histories_utterance_length
         self.histories = histories
         self.histories_arguments = histories_arguments
-        self.attention = None #attention
-        self.db_result = None #db_result
+        self.attention = None  # attention
+        self.db_result = None  # db_result
         self.targets = targets
         self.dropout_keep_prob = dropout_keep_prob
         self.batch_size = batch_size
