@@ -11,6 +11,7 @@ import model_cnn_w2w as cnn_w2w
 import model_rnn_w2w as rnn_w2w
 import model_cnn0_w2t as cnn0_w2t
 import model_cnn1_w2t as cnn1_w2t
+import model_cnn1_bn_w2t as cnn1_bn_w2t
 import model_cnn1_att_a_w2t as cnn1_att_a_w2t
 import model_cnn2_w2t as cnn2_w2t
 import model_rnn1_w2t as rnn1_w2t
@@ -123,6 +124,7 @@ def train(model, targets, idx2word_target):
                             model.targets: batch[targets],
                             model.use_inputs_prob: use_inputs_prob,
                             model.dropout_keep_prob: FLAGS.dropout_keep_prob,
+                            model.phase_train: True,
                         }
                 )
             print()
@@ -141,6 +143,7 @@ def train(model, targets, idx2word_target):
                                             model.targets: model.train_set[targets],
                                             model.use_inputs_prob: 1.0,
                                             model.dropout_keep_prob: 1.0,
+                                            model.phase_train: False,
                                         })
                     print('    - accuracy      = {acc:f}'.format(acc=acc))
                     print('    - loss          = {lss:f}'.format(lss=lss))
@@ -152,6 +155,7 @@ def train(model, targets, idx2word_target):
                                                      model.targets: model.test_set[targets],
                                                      model.use_inputs_prob: 0.0,
                                                      model.dropout_keep_prob: 1.0,
+                                                     model.phase_train: False,
                                                  })
                     writer.add_summary(summary, epoch)
                     print('  Test data')
@@ -182,6 +186,7 @@ def train(model, targets, idx2word_target):
                                             model.targets: model.train_set[targets],
                                             model.use_inputs_prob: 1.0,
                                             model.dropout_keep_prob: 1.0,
+                                            model.phase_train: False,
                                         })
                     print('    - use inputs prob = {uip:f}'.format(uip=1.0))
                     print('      - accuracy      = {acc:f}'.format(acc=acc))
@@ -194,6 +199,7 @@ def train(model, targets, idx2word_target):
                                             model.targets: model.train_set[targets],
                                             model.use_inputs_prob: 0.0,
                                             model.dropout_keep_prob: 1.0,
+                                            model.phase_train: False,
                                         })
                     print('    - use inputs prob = {uip:f}'.format(uip=0.0))
                     print('      - accuracy      = {acc:f}'.format(acc=acc))
@@ -206,6 +212,7 @@ def train(model, targets, idx2word_target):
                                                      model.targets: model.test_set[targets],
                                                      model.use_inputs_prob: 0.0,
                                                      model.dropout_keep_prob: 1.0,
+                                                     model.phase_train: False,
                                                  })
                     writer.add_summary(summary, epoch)
                     print('  Test data')
@@ -245,6 +252,7 @@ def train(model, targets, idx2word_target):
                                    model.targets: model.test_set[targets],
                                    model.use_inputs_prob: 0.0,
                                    model.dropout_keep_prob: 1.0,
+                                   model.phase_train: False,
                                })
 
         if FLAGS.task == 'w2w':
@@ -382,6 +390,10 @@ def main(_):
                 if FLAGS.task != 'w2t':
                     raise Exception('Error: Model cnn1-w2t only supports ONLY tasks w2t!')
                 model = cnn1_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn1-bn-w2t':
+                if FLAGS.task != 'w2t':
+                    raise Exception('Error: Model cnn1-bn-w2t only supports ONLY tasks w2t!')
+                model = cnn1_bn_w2t.Model(data, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'cnn1-att-a-w2t':
                 if FLAGS.task != 'w2t':
                     raise Exception('Error: Model cnn1-att-a-w2t only supports ONLY tasks w2t!')

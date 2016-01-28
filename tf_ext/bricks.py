@@ -126,23 +126,38 @@ def conv2d(input, filter, strides=[1, 1, 1, 1], name='conv2d'):
         W = tf.get_variable(
                 name='W',
                 shape=filter,
-                # initializer=tf.truncated_normal_initializer(stddev=1e-9 / glorot_mul(3, 3))
-                initializer=tf.truncated_normal_initializer()
-        )
-        b = tf.get_variable(
-                name='B',
-                shape=filter[-1],
-                initializer=tf.truncated_normal_initializer(stddev=1e-9 / glorot_mul(3, 3))
+                # initializer=tf.truncated_normal_initializer(stddev=0.1)
+                initializer=tf.truncated_normal_initializer() # this initialisation is much better!
         )
 
-        # y = tf.nn.relu6(tf.nn.bias_add(tf.nn.conv2d(input, W, strides=strides, padding='SAME'), b))
-        y = tf.nn.relu(tf.nn.bias_add(tf.nn.conv2d(input, W, strides=strides, padding='SAME'), b))
+        y = tf.nn.relu(tf.nn.conv2d(input, W, strides=strides, padding='SAME'))
 
         y.filter = filter
         y.strides = strides
         y.size = filter[-1]
         y.W = W
-        y.b = b
+        # y.b = b
+
+    return y
+
+
+def conv2d_bn(input, filter, phase_train, strides=[1, 1, 1, 1], name='conv2d_bn'):
+    with tf.variable_scope(name):
+        W = tf.get_variable(
+                name='W',
+                shape=filter,
+                # initializer=tf.truncated_normal_initializer(stddev=0.1)
+                initializer=tf.truncated_normal_initializer()
+        )
+
+        conv = tf.nn.conv2d(input, W, strides=strides, padding='SAME')
+        bn = batch_norm_conv(conv, filter[-1], phase_train)
+        y = tf.nn.relu(bn)
+
+        y.filter = filter
+        y.strides = strides
+        y.size = filter[-1]
+        y.W = W
 
     return y
 
@@ -153,6 +168,67 @@ def max_pool(input, ksize, strides, name='max_pool'):
         y.ksize = ksize
         y.strides = strides
     return y
+
+
+def batch_norm_conv(x, n_out, phase_train, name='bn', affine=True, decay=0.9, epsilon=1e-3):
+    """
+    Batch normalization on convolutional maps.
+    Args:
+        x:           Tensor, 4D BHWD input maps
+        n_out:       integer, depth of input maps
+        phase_train: boolean tf.Variable, true indicates training phase
+        name:        string, variable scope
+        affine:      whether to affine-transform outputs
+    Return:
+        normed:      batch-normalized maps
+    """
+    with tf.variable_scope(name):
+        beta = tf.get_variable(
+                name='beta',
+                shape=[n_out],
+                initializer=tf.constant_initializer(0.0)
+        )
+        gamma = tf.get_variable(
+                name='gamma',
+                shape=[n_out],
+                initializer=tf.constant_initializer(1.0),
+                trainable=affine
+        )
+
+        batch_mean, batch_var = tf.nn.moments(x, [0, 1, 2], name='moments')
+        ema = tf.train.ExponentialMovingAverage(decay=0.9)
+        ema_apply_op = ema.apply([batch_mean, batch_var])
+        ema_mean, ema_var = ema.average(batch_mean), ema.average(batch_var)
+
+        def mean_var_with_update():
+            with tf.control_dependencies([ema_apply_op]):
+                return tf.identity(batch_mean), tf.identity(batch_var)
+
+        mean, var = tf.python.control_flow_ops.cond(phase_train,
+                                                    mean_var_with_update,
+                                                    lambda: (ema_mean, ema_var))
+
+        normed = tf.nn.batch_norm_with_global_normalization(x, mean, var, beta, gamma, epsilon, affine)
+    return normed
+
+
+def batch_norm_lin(x, n_out, phase_train, name='bn', affine=True, decay=0.9, epsilon=1e-3):
+    """ A version of bach norm for a dense NN layer.
+
+    :param x: 2D tensor
+    :param n_out:
+    :param phase_train:
+    :param name:
+    :param affine:
+    :param decay:
+    :param epsilon:
+    :return:  batch-normalized output
+    """
+    x = tf.reshape(x, [-1, 1, 1, n_out])
+    bn = batch_norm_conv(x, n_out, phase_train, name, affine, decay, epsilon)
+    bn = tf.reshape(bn, [-1, n_out])
+
+    return bn
 
 
 def softmax_2d(input, n_classifiers, n_classes, name='softmax_2d'):

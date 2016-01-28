@@ -41,9 +41,10 @@ class Model:
             with tf.name_scope("UtterancesEncoder"):
                 conv3 = encoder_embedding
                 # conv3 = dropout(conv3, dropout_keep_prob)
-                conv3 = conv2d(
+                conv3 = conv2d_bn(
                         input=conv3,
                         filter=[1, 3, conv3.size, conv3.size * conv_mul],
+                        phase_train=phase_train,
                         name='conv_utt_size_3_layer_1'
                 )
 
@@ -52,15 +53,17 @@ class Model:
             with tf.name_scope("HistoryEncoder"):
                 conv3 = encoded_utterances
                 conv3 = dropout(conv3, dropout_keep_prob)
-                conv3 = conv2d(
+                conv3 = conv2d_bn(
                         input=conv3,
                         filter=[3, 1, conv3.size, conv3.size * conv_mul],
+                        phase_train=phase_train,
                         name='conv_hist_size_3_layer_1'
                 )
                 conv3 = dropout(conv3, dropout_keep_prob)
-                conv3 = conv2d(
+                conv3 = conv2d_bn(
                         input=conv3,
                         filter=[3, 1, conv3.size, conv3.size * conv_mul],
+                        phase_train=phase_train,
                         name='conv_hist_size_3_layer_2'
                 )
 
@@ -87,6 +90,7 @@ class Model:
                         output_size=dialogue_state_size,
                         name='linear_projection_1'
                 )
+                projection = batch_norm_lin(projection, dialogue_state_size, phase_train, name='linear_projection_1_bn')
                 activation = tf.nn.relu(projection)
                 activation = dropout(activation, dropout_keep_prob)
 
@@ -96,6 +100,7 @@ class Model:
                         output_size=dialogue_state_size,
                         name='linear_projection_2'
                 )
+                projection = batch_norm_lin(projection, dialogue_state_size, phase_train, name='linear_projection_2_bn')
                 activation = tf.nn.relu(projection)
                 activation = dropout(activation, dropout_keep_prob)
 
