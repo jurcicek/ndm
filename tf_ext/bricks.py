@@ -170,7 +170,7 @@ def max_pool(input, ksize, strides, name='max_pool'):
     return y
 
 
-def batch_norm_conv(x, n_out, phase_train, name='bn', affine=True, decay=0.9, epsilon=1e-3):
+def batch_norm_conv(x, n_out, phase_train, name='bn', affine=True, decay=0.99, epsilon=1e-3):
     """
     Batch normalization on convolutional maps.
     Args:
@@ -196,7 +196,7 @@ def batch_norm_conv(x, n_out, phase_train, name='bn', affine=True, decay=0.9, ep
         )
 
         batch_mean, batch_var = tf.nn.moments(x, [0, 1, 2], name='moments')
-        ema = tf.train.ExponentialMovingAverage(decay=0.9)
+        ema = tf.train.ExponentialMovingAverage(decay=decay)
         ema_apply_op = ema.apply([batch_mean, batch_var])
         ema_mean, ema_var = ema.average(batch_mean), ema.average(batch_var)
 
