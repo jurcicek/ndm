@@ -72,14 +72,22 @@ class Model:
             with tf.name_scope("Decoder"):
                 use_inputs_prob = tf.placeholder("float32", name='use_inputs_prob')
 
+                second_to_last_user_utterance = encoded_utterances[:, history_length - 3, 0, :]
+                last_system_utterance = encoded_utterances[:, history_length - 2, 0, :]
                 last_user_utterance = encoded_utterances[:, history_length - 1, 0, :]
 
                 dialogue_state = tf.concat(
                         1,
-                        [encoded_history, last_user_utterance],
+                        [
+                            encoded_history,
+                            last_user_utterance,
+                            last_system_utterance,
+                            second_to_last_user_utterance,
+                        ],
                         name='dialogue_state'
                 )
-                dialogue_state_size = conv3.size + histories_embedding_size * conv_mul
+                dialogue_state_size = conv3.size + \
+                                      3 * histories_embedding_size * conv_mul
 
                 activation = tf.nn.relu(dialogue_state)
                 activation = dropout(activation, dropout_keep_prob)
@@ -127,7 +135,6 @@ class Model:
             correct_prediction = tf.equal(tf.argmax(one_hot_labels, 1), tf.argmax(predictions, 1))
             accuracy = tf.reduce_mean(tf.cast(correct_prediction, 'float'))
             tf.scalar_summary('accuracy', accuracy)
-
 
         self.phase_train = phase_train
 

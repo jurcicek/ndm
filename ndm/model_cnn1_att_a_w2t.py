@@ -9,6 +9,9 @@ from tf_ext.bricks import embedding, dense_to_one_hot, linear, conv2d, multicolu
 
 class Model:
     def __init__(self, data, decoder_vocabulary_length, FLAGS):
+        with tf.variable_scope("phase_train"):
+            phase_train = tf.placeholder(tf.bool, name='phase_train')
+
         with tf.variable_scope("history_length"):
             history_length = data.train_set['histories'].shape[1]
 
@@ -123,22 +126,36 @@ class Model:
                 attention_min = tf.reduce_min(attention, reduction_indices=1, keep_dims=True)
                 attention_mean = tf.reduce_mean(attention_scores, reduction_indices=1, keep_dims=True)
                 attention_feat = tf.concat(1, [attention_max, attention_mean, attention_min], name='attention_feat')
+                attention_feat_size = 3
                 print(attention_feat)
 
                 db_result = tf.matmul(attention, database_embedding, name='db_result')
+                db_result_size = att_W_ny
                 print(db_result)
 
             with tf.name_scope("Decoder"):
                 use_inputs_prob = tf.placeholder("float32", name='use_inputs_prob')
 
+                second_to_last_user_utterance = encoded_utterances[:, history_length - 3, 0, :]
+                last_system_utterance = encoded_utterances[:, history_length - 2, 0, :]
                 last_user_utterance = encoded_utterances[:, history_length - 1, 0, :]
 
                 dialogue_state = tf.concat(
                         1,
-                        [encoded_history, last_user_utterance, attention_feat, db_result],
+                        [
+                            encoded_history,
+                            last_user_utterance,
+                            last_system_utterance,
+                            second_to_last_user_utterance,
+                            attention_feat,
+                            db_result
+                        ],
                         name='dialogue_state'
                 )
-                dialogue_state_size = conv3.size + histories_embedding_size * conv_mul + 3 + att_W_ny
+                dialogue_state_size = conv3.size + \
+                                      3 * histories_embedding_size * conv_mul + \
+                                      attention_feat_size + \
+                                      db_result_size
 
                 activation = tf.nn.relu(dialogue_state)
                 activation = dropout(activation, dropout_keep_prob)
@@ -184,6 +201,8 @@ class Model:
             correct_prediction = tf.equal(tf.argmax(one_hot_labels, 1), tf.argmax(predictions, 1))
             accuracy = tf.reduce_mean(tf.cast(correct_prediction, 'float'))
             tf.scalar_summary('accuracy', accuracy)
+
+        self.phase_train = phase_train
 
         self.data = data
 
