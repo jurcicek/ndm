@@ -4,6 +4,8 @@ import sys
 from collections import defaultdict
 from random import randint
 
+from tf_ext.logging import LogMessage
+
 debug = False
 
 
@@ -66,11 +68,13 @@ class Arguments:
                         return ARGUMENT
 
                 # overwrite an existing argument !!!
-                print('-' * 120)
-                print('WARNING:   overwriting an existing argument ARGUMENT = {a}, VALUE = {v}'.format(a=ARGUMENT,
+                m = LogMessage()
+                m.add('-' * 120)
+                m.add('WARNING:   overwriting an existing argument ARGUMENT = {a}, VALUE = {v}'.format(a=ARGUMENT,
                                                                                                        v=value))
-                print('ARGUMENTS:', self.argument2value)
-                print()
+                m.add('ARGUMENTS: {a}'.format(a=self.argument2value))
+                m.add('')
+                m.log()
                 self.add(value, ARGUMENT)
             else:
                 # there is only one argument per slot

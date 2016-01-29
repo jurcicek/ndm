@@ -24,6 +24,7 @@ import model_rnn2_w2t as rnn2_w2t
 
 from tf_ext.bricks import device_for_node_cpu
 from tf_ext.optimizers import AdamPlusOptimizer, AdamPlusCovOptimizer
+from tf_ext.logging import start_experiment, LogMessage
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -90,8 +91,11 @@ def train(model, targets, idx2word_target):
         # t_vars = [v for v in t_vars if 'embedding_table' not in v.name] # all variables except embeddings
         learning_rate = tf.Variable(float(FLAGS.learning_rate), trainable=False)
 
+        # train_op = tf.train.AdagradOptimizer(
+        #         learning_rate=learning_rate,
+        # )
         train_op = AdamPlusOptimizer(
-        # train_op = AdamPlusCovOptimizer(
+                # train_op = AdamPlusCovOptimizer(
                 learning_rate=learning_rate,
                 beta1=FLAGS.beta1,
                 beta2=FLAGS.beta2,
@@ -324,35 +328,42 @@ def train(model, targets, idx2word_target):
 
 
 def main(_):
+    start_experiment(FLAGS)
+
     graph = tf.Graph()
 
     with graph.as_default():
         with graph.device(device_for_node_cpu):
-            print('-' * 120)
-            print('End to End Neural Dialogue Manager')
-            print('    model                 = {model}'.format(model=FLAGS.model))
-            print('    task                  = {t}'.format(t=FLAGS.task))
-            print('    input                 = {i}'.format(i=FLAGS.input))
-            print('    train_data            = {train_data}'.format(train_data=FLAGS.train_data))
-            print('    data_fraction         = {data_fraction}'.format(data_fraction=FLAGS.data_fraction))
-            print('    test_data             = {test_data}'.format(test_data=FLAGS.test_data))
-            print('    ontology              = {ontology}'.format(ontology=FLAGS.ontology))
-            print('    database              = {database}'.format(database=FLAGS.database))
-            print('    max_epochs            = {max_epochs}'.format(max_epochs=FLAGS.max_epochs))
-            print('    batch_size            = {batch_size}'.format(batch_size=FLAGS.batch_size))
-            print('    learning_rate         = {learning_rate}'.format(learning_rate=FLAGS.learning_rate))
-            print('    decay                 = {decay}'.format(decay=FLAGS.decay))
-            print('    beta1                 = {beta1}'.format(beta1=FLAGS.beta1))
-            print('    beta2                 = {beta2}'.format(beta2=FLAGS.beta2))
-            print('    epsilon               = {epsilon}'.format(epsilon=FLAGS.epsilon))
-            print('    pow                   = {pow}'.format(pow=FLAGS.pow))
-            print('    dense_regularization  = {regularization}'.format(regularization=FLAGS.dense_regularization))
-            print('    sparse_regularization = {regularization}'.format(regularization=FLAGS.sparse_regularization))
-            print('    max_gradient_norm     = {max_gradient_norm}'.format(max_gradient_norm=FLAGS.max_gradient_norm))
-            print('    use_inputs_prob_decay = {use_inputs_prob_decay}'.format(
+            m = LogMessage()
+            m.add('-' * 120)
+            m.add('End to End Neural Dialogue Manager')
+            m.add('    model                 = {model}'.format(model=FLAGS.model))
+            m.add('    task                  = {t}'.format(t=FLAGS.task))
+            m.add('    input                 = {i}'.format(i=FLAGS.input))
+            m.add('    train_data            = {train_data}'.format(train_data=FLAGS.train_data))
+            m.add('    data_fraction         = {data_fraction}'.format(data_fraction=FLAGS.data_fraction))
+            m.add('    test_data             = {test_data}'.format(test_data=FLAGS.test_data))
+            m.add('    ontology              = {ontology}'.format(ontology=FLAGS.ontology))
+            m.add('    database              = {database}'.format(database=FLAGS.database))
+            m.add('    max_epochs            = {max_epochs}'.format(max_epochs=FLAGS.max_epochs))
+            m.add('    batch_size            = {batch_size}'.format(batch_size=FLAGS.batch_size))
+            m.add('    learning_rate         = {learning_rate}'.format(learning_rate=FLAGS.learning_rate))
+            m.add('    decay                 = {decay}'.format(decay=FLAGS.decay))
+            m.add('    beta1                 = {beta1}'.format(beta1=FLAGS.beta1))
+            m.add('    beta2                 = {beta2}'.format(beta2=FLAGS.beta2))
+            m.add('    epsilon               = {epsilon}'.format(epsilon=FLAGS.epsilon))
+            m.add('    pow                   = {pow}'.format(pow=FLAGS.pow))
+            m.add('    dense_regularization  = {regularization}'.format(regularization=FLAGS.dense_regularization))
+            m.add('    sparse_regularization = {regularization}'.format(regularization=FLAGS.sparse_regularization))
+            m.add(
+                    '    max_gradient_norm     = {max_gradient_norm}'.format(max_gradient_norm=FLAGS.max_gradient_norm))
+            m.add('    use_inputs_prob_decay = {use_inputs_prob_decay}'.format(
                     use_inputs_prob_decay=FLAGS.use_inputs_prob_decay))
-            print('    dropout_keep_prob     = {dropout_keep_prob}'.format(dropout_keep_prob=FLAGS.dropout_keep_prob))
-            print('-' * 120)
+            m.add(
+                    '    dropout_keep_prob     = {dropout_keep_prob}'.format(dropout_keep_prob=FLAGS.dropout_keep_prob))
+            m.add('-' * 120)
+            m.log()
+
             data = dataset.DSTC2(
                     mode=FLAGS.task,
                     input=FLAGS.input,
@@ -363,16 +374,17 @@ def main(_):
                     database_fn=FLAGS.database,
                     batch_size=FLAGS.batch_size
             )
-
-            print('Database # rows:              ', len(data.database))
-            print('Database # columns:           ', len(data.database_word2idx.keys()))
-            print('History vocabulary size:      ', len(data.idx2word_history))
-            print('History args. vocabulary size:', len(data.idx2word_history_arguments))
-            print('State vocabulary size:        ', len(data.idx2word_state))
-            print('Action vocabulary size:       ', len(data.idx2word_action))
-            print('Action args. vocabulary size: ', len(data.idx2word_action_arguments))
-            print('Action tmpl. vocabulary size: ', len(data.idx2word_action_template))
-            print('-' * 120)
+            m = LogMessage()
+            m.add('Database # rows:               {d}'.format(d=len(data.database)))
+            m.add('Database # columns:            {d}'.format(d=len(data.database_word2idx.keys())))
+            m.add('History vocabulary size:       {d}'.format(d=len(data.idx2word_history)))
+            m.add('History args. vocabulary size: {d}'.format(d=len(data.idx2word_history_arguments)))
+            m.add('State vocabulary size:         {d}'.format(d=len(data.idx2word_state)))
+            m.add('Action vocabulary size:        {d}'.format(d=len(data.idx2word_action)))
+            m.add('Action args. vocabulary size:  {d}'.format(d=len(data.idx2word_action_arguments)))
+            m.add('Action tmpl. vocabulary size:  {d}'.format(d=len(data.idx2word_action_template)))
+            m.add('-' * 120)
+            m.log()
 
             if FLAGS.task == 'tracker':
                 decoder_vocabulary_length = len(data.idx2word_state)
