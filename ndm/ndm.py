@@ -116,20 +116,23 @@ def train(model, targets, idx2word_target):
         tf.initialize_all_variables().run()
 
         # prepare batch indexes
+        m = LogMessage()
         train_set_size = model.train_set['histories'].shape[0]
-        print('Train set size:', train_set_size)
+        m.add('Train set size: {d}'.format(d=train_set_size))
         batch_size = FLAGS.batch_size
-        print('Batch size:', batch_size)
-        print('#Batches:', len(model.data.train_batch_indexes))
-        # print('Batch indexes', batch_indexes)
+        m.add('Batch size:     {d}'.format(d=batch_size))
+        m.add('#Batches:       {d}'.format(d=len(model.data.train_batch_indexes)))
+        # m.add('Batch indexes: {d}'.format(d=batch_indexes)
+        m.log()
 
         previous_accuracies = []
         previous_losses = []
         use_inputs_prob = 1.0
         for epoch in range(FLAGS.max_epochs):
-            print('Batch: ', end=' ', flush=True)
+            LogMessage.add_flush('Batch: ')
             for b, batch in enumerate(model.data.iter_train_batches()):
-                print(b, end=' ', flush=True)
+                LogMessage.add_flush(b)
+                LogMessage.add_flush(' ')
                 sess.run(
                         [train_op],
                         feed_dict={
@@ -142,14 +145,15 @@ def train(model, targets, idx2word_target):
                             model.phase_train: True,
                         }
                 )
-            print()
+            LogMessage.add_flush('\n')
 
             if epoch % max(min(int(FLAGS.max_epochs / 100), 100), 1) == 0:
                 if FLAGS.task == 'w2t':
-                    print()
-                    print('Epoch: {epoch}'.format(epoch=epoch))
-                    print('  - learning rate   = {lr:f}'.format(lr=learning_rate.eval()))
-                    print('  Train data')
+                    m = LogMessage()
+                    m.add('')
+                    m.add('Epoch: {epoch}'.format(epoch=epoch))
+                    m.add('  - learning rate   = {lr:f}'.format(lr=learning_rate.eval()))
+                    m.add('  Train data')
                     lss, acc = sess.run([model.loss, model.accuracy],
                                         feed_dict={
                                             model.database: model.data.database,
@@ -160,8 +164,8 @@ def train(model, targets, idx2word_target):
                                             model.dropout_keep_prob: 1.0,
                                             model.phase_train: False,
                                         })
-                    print('    - accuracy      = {acc:f}'.format(acc=acc))
-                    print('    - loss          = {lss:f}'.format(lss=lss))
+                    m.add('    - accuracy      = {acc:f}'.format(acc=acc))
+                    m.add('    - loss          = {lss:f}'.format(lss=lss))
                     summary, lss, acc = sess.run([merged, model.loss, model.accuracy],
                                                  feed_dict={
                                                      model.database: model.data.database,
@@ -173,10 +177,11 @@ def train(model, targets, idx2word_target):
                                                      model.phase_train: False,
                                                  })
                     writer.add_summary(summary, epoch)
-                    print('  Test data')
-                    print('    - accuracy      = {acc:f}'.format(acc=acc))
-                    print('    - loss          = {lss:f}'.format(lss=lss))
-                    print()
+                    m.add('  Test data')
+                    m.add('    - accuracy      = {acc:f}'.format(acc=acc))
+                    m.add('    - loss          = {lss:f}'.format(lss=lss))
+                    m.add()
+                    m.log()
 
                     # decrease learning rate if no improvement was seen over last 3 times.
                     if len(previous_losses) > 2 and lss > max(previous_losses[-3:]):
@@ -188,11 +193,12 @@ def train(model, targets, idx2word_target):
                     if acc > 0.9999 or max(previous_accuracies) > max(previous_accuracies[-20:]):
                         break
                 else:
-                    print()
-                    print('Epoch: {epoch}'.format(epoch=epoch))
-                    print('  - learning rate   = {lr:f}'.format(lr=learning_rate.eval()))
-                    print('  - use inputs prob = {uip:f}'.format(uip=use_inputs_prob))
-                    print('  Train data')
+                    m = LogMessage()
+                    m.add()
+                    m.add('Epoch: {epoch}'.format(epoch=epoch))
+                    m.add('  - learning rate   = {lr:f}'.format(lr=learning_rate.eval()))
+                    m.add('  - use inputs prob = {uip:f}'.format(uip=use_inputs_prob))
+                    m.add('  Train data')
                     lss, acc = sess.run([model.loss, model.accuracy],
                                         feed_dict={
                                             model.database: model.data.database,
@@ -203,9 +209,9 @@ def train(model, targets, idx2word_target):
                                             model.dropout_keep_prob: 1.0,
                                             model.phase_train: False,
                                         })
-                    print('    - use inputs prob = {uip:f}'.format(uip=1.0))
-                    print('      - accuracy      = {acc:f}'.format(acc=acc))
-                    print('      - loss          = {lss:f}'.format(lss=lss))
+                    m.add('    - use inputs prob = {uip:f}'.format(uip=1.0))
+                    m.add('      - accuracy      = {acc:f}'.format(acc=acc))
+                    m.add('      - loss          = {lss:f}'.format(lss=lss))
                     lss, acc = sess.run([model.loss, model.accuracy],
                                         feed_dict={
                                             model.database: model.data.database,
@@ -216,9 +222,9 @@ def train(model, targets, idx2word_target):
                                             model.dropout_keep_prob: 1.0,
                                             model.phase_train: False,
                                         })
-                    print('    - use inputs prob = {uip:f}'.format(uip=0.0))
-                    print('      - accuracy      = {acc:f}'.format(acc=acc))
-                    print('      - loss          = {lss:f}'.format(lss=lss))
+                    m.add('    - use inputs prob = {uip:f}'.format(uip=0.0))
+                    m.add('      - accuracy      = {acc:f}'.format(acc=acc))
+                    m.add('      - loss          = {lss:f}'.format(lss=lss))
                     summary, lss, acc = sess.run([merged, model.loss, model.accuracy],
                                                  feed_dict={
                                                      model.database: model.data.database,
@@ -230,11 +236,12 @@ def train(model, targets, idx2word_target):
                                                      model.phase_train: False,
                                                  })
                     writer.add_summary(summary, epoch)
-                    print('  Test data')
-                    print('    - use inputs prob = {uip:f}'.format(uip=0.0))
-                    print('      - accuracy      = {acc:f}'.format(acc=acc))
-                    print('      - loss          = {lss:f}'.format(lss=lss))
-                    print()
+                    m.add('  Test data')
+                    m.add('    - use inputs prob = {uip:f}'.format(uip=0.0))
+                    m.add('      - accuracy      = {acc:f}'.format(acc=acc))
+                    m.add('      - loss          = {lss:f}'.format(lss=lss))
+                    m.add()
+                    m.log()
 
                     # decrease learning rate if no improvement was seen over last 3 times.
                     if len(previous_losses) > 2 and lss > max(previous_losses[-3:]):
@@ -249,16 +256,19 @@ def train(model, targets, idx2word_target):
             use_inputs_prob *= FLAGS.use_inputs_prob_decay
 
         save_path = saver.save(sess, ".cnn-model.ckpt")
-        print()
-        print("Model saved in file: %s" % save_path)
-        print()
+        m = LogMessage()
+        m.add()
+        m.add("Model saved in file: {s}".format(s=save_path))
+        m.add()
+        m.log()
 
-        # print('Test features')
-        # print(test_set['histories'])
-        # print('Test targets')
-        print('Shape of targets:', model.test_set[targets].shape)
-        # print(test_set[targets])
-        print('Predictions')
+        m = LogMessage()
+        # m.add('Test features')
+        # m.add(test_set['histories'])
+        # m.add('Test targets')
+        m.add('Shape of targets: {s}'.format(s=model.test_set[targets].shape))
+        # m.add(test_set[targets])
+        m.add('Predictions')
         predictions = sess.run(model.predictions,
                                feed_dict={
                                    model.database: model.data.database,
@@ -272,12 +282,12 @@ def train(model, targets, idx2word_target):
 
         if FLAGS.task == 'w2w':
             predictions_argmax = np.argmax(predictions, 2)
-            print('Shape of predictions:', predictions.shape)
-            print('Argmax predictions')
-            print()
+            m.add('Shape of predictions: {s}'.format(s=predictions.shape))
+            m.add('Argmax predictions')
+            m.add()
             for history in range(0, predictions_argmax.shape[0],
                                  max(int(predictions_argmax.shape[0] * 0.05), 1)):
-                print('History', history)
+                m.add('History', history)
 
                 for j in range(model.test_set['histories'].shape[1]):
                     utterance = []
@@ -286,7 +296,7 @@ def train(model, targets, idx2word_target):
                         if w not in ['_SOS_', '_EOS_']:
                             utterance.append(w)
                     if utterance:
-                        print('U {j}: {c:80}'.format(j=j, c=' '.join(utterance)))
+                        m.add('U {j}: {c:80}'.format(j=j, c=' '.join(utterance)))
 
                 prediction = []
                 for j in range(predictions_argmax.shape[1]):
@@ -294,7 +304,7 @@ def train(model, targets, idx2word_target):
                     if w not in ['_SOS_', '_EOS_']:
                         prediction.append(w)
 
-                print('P  : {t:80}'.format(t=' '.join(prediction)))
+                m.add('P  : {t:80}'.format(t=' '.join(prediction)))
 
                 target = []
                 for j in range(model.test_set[targets].shape[1]):
@@ -302,16 +312,16 @@ def train(model, targets, idx2word_target):
                     if w not in ['_SOS_', '_EOS_']:
                         target.append(w)
 
-                print('T  : {t:80}'.format(t=' '.join(target)))
-                print()
+                m.add('T  : {t:80}'.format(t=' '.join(target)))
+                m.add()
         else:
             predictions_argmax = np.argmax(predictions, 1)
-            print('Shape of predictions:', predictions.shape)
-            print('Argmax predictions')
-            print()
+            m.add('Shape of predictions: {s}'.format(s=predictions.shape))
+            m.add('Argmax predictions')
+            m.add()
             for history in range(0, predictions_argmax.shape[0],
                                  max(int(predictions_argmax.shape[0] * 0.05), 1)):
-                print('History', history)
+                m.add('History {d}'.format(d=history))
 
                 for j in range(model.test_set['histories'].shape[1]):
                     utterance = []
@@ -320,11 +330,12 @@ def train(model, targets, idx2word_target):
                         if w not in ['_SOS_', '_EOS_']:
                             utterance.append(w)
                     if utterance:
-                        print('U {j}: {c:80}'.format(j=j, c=' '.join(utterance)))
+                        m.add('U {j}: {c:80}'.format(j=j, c=' '.join(utterance)))
 
-                print('P  : {t:80}'.format(t=idx2word_target[predictions_argmax[history]]))
-                print('T  : {t:80}'.format(t=idx2word_target[model.test_set[targets][history]]))
-                print()
+                m.add('P  : {t:80}'.format(t=idx2word_target[predictions_argmax[history]]))
+                m.add('T  : {t:80}'.format(t=idx2word_target[model.test_set[targets][history]]))
+                m.add()
+        m.log()
 
 
 def main(_):
@@ -334,7 +345,7 @@ def main(_):
 
     with graph.as_default():
         with graph.device(device_for_node_cpu):
-            m = LogMessage()
+            m = LogMessage(time=True)
             m.add('-' * 120)
             m.add('End to End Neural Dialogue Manager')
             m.add('    model                 = {model}'.format(model=FLAGS.model))
