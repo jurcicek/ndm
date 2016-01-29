@@ -3,7 +3,7 @@ import sys
 
 import tensorflow as tf
 
-from tf_ext.bricks import embedding, dense_to_one_hot, linear, conv2d, dropout, reduce_max, batch_norm_lin, conv2d_bn, \
+from tfx.bricks import embedding, dense_to_one_hot, linear, conv2d, dropout, reduce_max, batch_norm_lin, conv2d_bn, \
     pow_1
 
 

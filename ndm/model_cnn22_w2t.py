@@ -3,7 +3,7 @@ import sys
 
 import tensorflow as tf
 
-from tf_ext.bricks import embedding, dense_to_one_hot, linear, conv2d, max_pool, pow_1
+from tfx.bricks import embedding, dense_to_one_hot, linear, conv2d, max_pool, pow_1
 
 
 class Model:

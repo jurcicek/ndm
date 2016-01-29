@@ -6,7 +6,7 @@ sys.path.extend(['..'])
 import tensorflow as tf
 
 from tensorflow.python.ops.rnn_cell import LSTMCell
-from tf_ext.bricks import embedding, rnn, rnn_decoder, dense_to_one_hot, brnn
+from tfx.bricks import embedding, rnn, rnn_decoder, dense_to_one_hot, brnn
 
 
 class Model:

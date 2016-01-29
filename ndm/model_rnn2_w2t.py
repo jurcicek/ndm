@@ -4,7 +4,7 @@ import sys
 import tensorflow as tf
 
 from tensorflow.python.ops.rnn_cell import LSTMCell
-from tf_ext.bricks import embedding, rnn, dense_to_one_hot, brnn, linear
+from tfx.bricks import embedding, rnn, dense_to_one_hot, brnn, linear
 
 
 class Model:

@@ -4,7 +4,7 @@ import sys
 from collections import defaultdict
 from random import randint
 
-from tf_ext.logging import LogMessage
+from tfx.logging import LogMessage
 
 debug = False
 

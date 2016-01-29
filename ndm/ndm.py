@@ -22,9 +22,9 @@ import model_cnn23_mp_bn_w2t as cnn23_mp_bn_w2t
 import model_rnn1_w2t as rnn1_w2t
 import model_rnn2_w2t as rnn2_w2t
 
-from tf_ext.bricks import device_for_node_cpu
-from tf_ext.optimizers import AdamPlusOptimizer, AdamPlusCovOptimizer
-from tf_ext.logging import start_experiment, LogMessage
+from tfx.bricks import device_for_node_cpu
+from tfx.optimizers import AdamPlusOptimizer, AdamPlusCovOptimizer
+from tfx.logging import start_experiment, LogMessage
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -94,17 +94,17 @@ def train(model, targets, idx2word_target):
         # train_op = tf.train.AdagradOptimizer(
         #         learning_rate=learning_rate,
         # )
+        # train_op = AdamPlusCovOptimizer(
         train_op = AdamPlusOptimizer(
-                # train_op = AdamPlusCovOptimizer(
-                learning_rate=learning_rate,
-                beta1=FLAGS.beta1,
-                beta2=FLAGS.beta2,
-                epsilon=FLAGS.epsilon,
-                pow=FLAGS.pow,
-                dense_regularization=FLAGS.dense_regularization,
-                sparse_regularization=FLAGS.sparse_regularization,
-                use_locking=False,
-                name='trainer')
+            learning_rate=learning_rate,
+            beta1=FLAGS.beta1,
+            beta2=FLAGS.beta2,
+            epsilon=FLAGS.epsilon,
+            pow=FLAGS.pow,
+            dense_regularization=FLAGS.dense_regularization,
+            sparse_regularization=FLAGS.sparse_regularization,
+            use_locking=False,
+            name='trainer')
 
         learning_rate_decay_op = learning_rate.assign(learning_rate * FLAGS.decay)
         global_step = tf.Variable(0, trainable=False)
@@ -134,16 +134,16 @@ def train(model, targets, idx2word_target):
                 LogMessage.add_flush(b)
                 LogMessage.add_flush(' ')
                 sess.run(
-                        [train_op],
-                        feed_dict={
-                            model.database: model.data.database,
-                            model.histories: batch['histories'],
-                            model.histories_arguments: batch['histories_arguments'],
-                            model.targets: batch[targets],
-                            model.use_inputs_prob: use_inputs_prob,
-                            model.dropout_keep_prob: FLAGS.dropout_keep_prob,
-                            model.phase_train: True,
-                        }
+                    [train_op],
+                    feed_dict={
+                        model.database: model.data.database,
+                        model.histories: batch['histories'],
+                        model.histories_arguments: batch['histories_arguments'],
+                        model.targets: batch[targets],
+                        model.use_inputs_prob: use_inputs_prob,
+                        model.dropout_keep_prob: FLAGS.dropout_keep_prob,
+                        model.phase_train: True,
+                    }
                 )
             LogMessage.add_flush('\n')
 
@@ -154,28 +154,32 @@ def train(model, targets, idx2word_target):
                     m.add('Epoch: {epoch}'.format(epoch=epoch))
                     m.add('  - learning rate   = {lr:f}'.format(lr=learning_rate.eval()))
                     m.add('  Train data')
-                    lss, acc = sess.run([model.loss, model.accuracy],
-                                        feed_dict={
-                                            model.database: model.data.database,
-                                            model.histories: model.train_set['histories'],
-                                            model.histories_arguments: model.train_set['histories_arguments'],
-                                            model.targets: model.train_set[targets],
-                                            model.use_inputs_prob: 1.0,
-                                            model.dropout_keep_prob: 1.0,
-                                            model.phase_train: False,
-                                        })
+                    lss, acc = sess.run(
+                        [model.loss, model.accuracy],
+                        feed_dict={
+                            model.database: model.data.database,
+                            model.histories: model.train_set['histories'],
+                            model.histories_arguments: model.train_set['histories_arguments'],
+                            model.targets: model.train_set[targets],
+                            model.use_inputs_prob: 1.0,
+                            model.dropout_keep_prob: 1.0,
+                            model.phase_train: False,
+                        }
+                    )
                     m.add('    - accuracy      = {acc:f}'.format(acc=acc))
                     m.add('    - loss          = {lss:f}'.format(lss=lss))
-                    summary, lss, acc = sess.run([merged, model.loss, model.accuracy],
-                                                 feed_dict={
-                                                     model.database: model.data.database,
-                                                     model.histories: model.test_set['histories'],
-                                                     model.histories_arguments: model.test_set['histories_arguments'],
-                                                     model.targets: model.test_set[targets],
-                                                     model.use_inputs_prob: 0.0,
-                                                     model.dropout_keep_prob: 1.0,
-                                                     model.phase_train: False,
-                                                 })
+                    summary, lss, acc = sess.run(
+                        [merged, model.loss, model.accuracy],
+                        feed_dict={
+                            model.database: model.data.database,
+                            model.histories: model.test_set['histories'],
+                            model.histories_arguments: model.test_set['histories_arguments'],
+                            model.targets: model.test_set[targets],
+                            model.use_inputs_prob: 0.0,
+                            model.dropout_keep_prob: 1.0,
+                            model.phase_train: False,
+                        }
+                    )
                     writer.add_summary(summary, epoch)
                     m.add('  Test data')
                     m.add('    - accuracy      = {acc:f}'.format(acc=acc))
@@ -199,42 +203,48 @@ def train(model, targets, idx2word_target):
                     m.add('  - learning rate   = {lr:f}'.format(lr=learning_rate.eval()))
                     m.add('  - use inputs prob = {uip:f}'.format(uip=use_inputs_prob))
                     m.add('  Train data')
-                    lss, acc = sess.run([model.loss, model.accuracy],
-                                        feed_dict={
-                                            model.database: model.data.database,
-                                            model.histories: model.train_set['histories'],
-                                            model.histories_arguments: model.train_set['histories_arguments'],
-                                            model.targets: model.train_set[targets],
-                                            model.use_inputs_prob: 1.0,
-                                            model.dropout_keep_prob: 1.0,
-                                            model.phase_train: False,
-                                        })
+                    lss, acc = sess.run(
+                        [model.loss, model.accuracy],
+                        feed_dict={
+                            model.database: model.data.database,
+                            model.histories: model.train_set['histories'],
+                            model.histories_arguments: model.train_set['histories_arguments'],
+                            model.targets: model.train_set[targets],
+                            model.use_inputs_prob: 1.0,
+                            model.dropout_keep_prob: 1.0,
+                            model.phase_train: False,
+                        }
+                    )
                     m.add('    - use inputs prob = {uip:f}'.format(uip=1.0))
                     m.add('      - accuracy      = {acc:f}'.format(acc=acc))
                     m.add('      - loss          = {lss:f}'.format(lss=lss))
-                    lss, acc = sess.run([model.loss, model.accuracy],
-                                        feed_dict={
-                                            model.database: model.data.database,
-                                            model.histories: model.train_set['histories'],
-                                            model.histories_arguments: model.train_set['histories_arguments'],
-                                            model.targets: model.train_set[targets],
-                                            model.use_inputs_prob: 0.0,
-                                            model.dropout_keep_prob: 1.0,
-                                            model.phase_train: False,
-                                        })
+                    lss, acc = sess.run(
+                        [model.loss, model.accuracy],
+                        feed_dict={
+                            model.database: model.data.database,
+                            model.histories: model.train_set['histories'],
+                            model.histories_arguments: model.train_set['histories_arguments'],
+                            model.targets: model.train_set[targets],
+                            model.use_inputs_prob: 0.0,
+                            model.dropout_keep_prob: 1.0,
+                            model.phase_train: False,
+                        }
+                    )
                     m.add('    - use inputs prob = {uip:f}'.format(uip=0.0))
                     m.add('      - accuracy      = {acc:f}'.format(acc=acc))
                     m.add('      - loss          = {lss:f}'.format(lss=lss))
-                    summary, lss, acc = sess.run([merged, model.loss, model.accuracy],
-                                                 feed_dict={
-                                                     model.database: model.data.database,
-                                                     model.histories: model.test_set['histories'],
-                                                     model.histories_arguments: model.test_set['histories_arguments'],
-                                                     model.targets: model.test_set[targets],
-                                                     model.use_inputs_prob: 0.0,
-                                                     model.dropout_keep_prob: 1.0,
-                                                     model.phase_train: False,
-                                                 })
+                    summary, lss, acc = sess.run(
+                        [merged, model.loss, model.accuracy],
+                        feed_dict={
+                            model.database: model.data.database,
+                            model.histories: model.test_set['histories'],
+                            model.histories_arguments: model.test_set['histories_arguments'],
+                            model.targets: model.test_set[targets],
+                            model.use_inputs_prob: 0.0,
+                            model.dropout_keep_prob: 1.0,
+                            model.phase_train: False,
+                        }
+                    )
                     writer.add_summary(summary, epoch)
                     m.add('  Test data')
                     m.add('    - use inputs prob = {uip:f}'.format(uip=0.0))
@@ -269,16 +279,18 @@ def train(model, targets, idx2word_target):
         m.add('Shape of targets: {s}'.format(s=model.test_set[targets].shape))
         # m.add(test_set[targets])
         m.add('Predictions')
-        predictions = sess.run(model.predictions,
-                               feed_dict={
-                                   model.database: model.data.database,
-                                   model.histories: model.test_set['histories'],
-                                   model.histories_arguments: model.test_set['histories_arguments'],
-                                   model.targets: model.test_set[targets],
-                                   model.use_inputs_prob: 0.0,
-                                   model.dropout_keep_prob: 1.0,
-                                   model.phase_train: False,
-                               })
+        predictions = sess.run(
+            model.predictions,
+            feed_dict={
+                model.database: model.data.database,
+                model.histories: model.test_set['histories'],
+                model.histories_arguments: model.test_set['histories_arguments'],
+                model.targets: model.test_set[targets],
+                model.use_inputs_prob: 0.0,
+                model.dropout_keep_prob: 1.0,
+                model.phase_train: False,
+            }
+        )
 
         if FLAGS.task == 'w2w':
             predictions_argmax = np.argmax(predictions, 2)
@@ -367,23 +379,23 @@ def main(_):
             m.add('    dense_regularization  = {regularization}'.format(regularization=FLAGS.dense_regularization))
             m.add('    sparse_regularization = {regularization}'.format(regularization=FLAGS.sparse_regularization))
             m.add(
-                    '    max_gradient_norm     = {max_gradient_norm}'.format(max_gradient_norm=FLAGS.max_gradient_norm))
+                '    max_gradient_norm     = {max_gradient_norm}'.format(max_gradient_norm=FLAGS.max_gradient_norm))
             m.add('    use_inputs_prob_decay = {use_inputs_prob_decay}'.format(
-                    use_inputs_prob_decay=FLAGS.use_inputs_prob_decay))
+                use_inputs_prob_decay=FLAGS.use_inputs_prob_decay))
             m.add(
-                    '    dropout_keep_prob     = {dropout_keep_prob}'.format(dropout_keep_prob=FLAGS.dropout_keep_prob))
+                '    dropout_keep_prob     = {dropout_keep_prob}'.format(dropout_keep_prob=FLAGS.dropout_keep_prob))
             m.add('-' * 120)
             m.log()
 
             data = dataset.DSTC2(
-                    mode=FLAGS.task,
-                    input=FLAGS.input,
-                    train_data_fn=FLAGS.train_data,
-                    data_fraction=FLAGS.data_fraction,
-                    test_data_fn=FLAGS.test_data,
-                    ontology_fn=FLAGS.ontology,
-                    database_fn=FLAGS.database,
-                    batch_size=FLAGS.batch_size
+                mode=FLAGS.task,
+                input=FLAGS.input,
+                train_data_fn=FLAGS.train_data,
+                data_fraction=FLAGS.data_fraction,
+                test_data_fn=FLAGS.test_data,
+                ontology_fn=FLAGS.ontology,
+                database_fn=FLAGS.database,
+                batch_size=FLAGS.batch_size
             )
             m = LogMessage()
             m.add('Database # rows:               {d}'.format(d=len(data.database)))
