@@ -9,12 +9,13 @@ import tensorflow as tf
 import dataset
 import model_cnn_w2w as cnn_w2w
 import model_rnn_w2w as rnn_w2w
-import model_cnn0_w2t as cnn0_w2t
-import model_cnn1_w2t as cnn1_w2t
-import model_cnn1_bn_w2t as cnn1_bn_w2t
-import model_cnn1_att_a_w2t as cnn1_att_a_w2t
-import model_cnn1_bn_att_a_w2t as cnn1_bn_att_a_w2t
-import model_cnn2_w2t as cnn2_w2t
+import model_cnn02_w2t as cnn02_w2t
+import model_cnn12_w2t as cnn12_w2t
+import model_cnn12_bn_w2t as cnn12_bn_w2t
+import model_cnn12_att_a_w2t as cnn12_att_a_w2t
+import model_cnn12_bn_att_a_w2t as cnn12_bn_att_a_w2t
+import model_cnn13_bn_w2t as cnn13_bn_w2t
+import model_cnn22_w2t as cnn2_w2t
 import model_rnn1_w2t as rnn1_w2t
 import model_rnn2_w2t as rnn2_w2t
 
@@ -25,12 +26,13 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_string('model', 'cnn-w2w', '"cnn-w2w" (convolutional network for state tracking - words 2 words ) | '
                                         '"rnn-w2w" (bidirectional recurrent network for state tracking - words 2 words) | '
-                                        '"cnn0-w2t" (convolutional network for state tracking - words 2 template | '
-                                        '"cnn1-w2t" (convolutional network for state tracking - words 2 template | '
-                                        '"cnn1-bn_w2t" (convolutional network for state tracking - words 2 template | '
-                                        '"cnn1-att-a-w2t" (convolutional network for state tracking with attention model - words 2 template | '
-                                        '"cnn1-bn-att-a-w2t" (convolutional network for state tracking with attention model - words 2 template | '
-                                        '"cnn2-w2t" (convolutional network for state tracking - words 2 template | '
+                                        '"cnn02-w2t" (convolutional network for state tracking - words 2 template | '
+                                        '"cnn12-w2t" (convolutional network for state tracking - words 2 template | '
+                                        '"cnn12-bn_w2t" (convolutional network for state tracking - words 2 template | '
+                                        '"cnn12-att-a-w2t" (convolutional network for state tracking with attention model - words 2 template | '
+                                        '"cnn12-bn-att-a-w2t" (convolutional network for state tracking with attention model - words 2 template | '
+                                        '"cnn13-bn_w2t" (convolutional network for state tracking - words 2 template | '
+                                        '"cnn22-w2t" (convolutional network for state tracking - words 2 template | '
                                         '"rnn1-w2t" (forward only recurrent network for state tracking - words 2 template | '
                                         '"rnn2-w2t" (bidirectional recurrent network for state tracking - words 2 template)')
 flags.DEFINE_string('task', 'tracker', '"tracker" (dialogue state tracker) | '
@@ -385,33 +387,37 @@ def main(_):
                 model = cnn_w2w.Model(data, targets, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'rnn-w2w':
                 model = rnn_w2w.Model(data, targets, decoder_vocabulary_length, FLAGS)
-            elif FLAGS.model == 'cnn0-w2t':
+            elif FLAGS.model == 'cnn02-w2t':
                 if FLAGS.task != 'w2t':
-                    raise Exception('Error: Model cnn1-w2t only supports ONLY tasks w2t!')
-                model = cnn0_w2t.Model(data, decoder_vocabulary_length, FLAGS)
-            elif FLAGS.model == 'cnn1-w2t':
+                    raise Exception('Error: Model cnn02-w2t only supports ONLY tasks w2t!')
+                model = cnn02_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn12-w2t':
                 if FLAGS.task != 'w2t':
-                    raise Exception('Error: Model cnn1-w2t only supports ONLY tasks w2t!')
-                model = cnn1_w2t.Model(data, decoder_vocabulary_length, FLAGS)
-            elif FLAGS.model == 'cnn1-bn-w2t':
+                    raise Exception('Error: Model cnn12-w2t only supports ONLY tasks w2t!')
+                model = cnn12_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn12-bn-w2t':
                 if FLAGS.task != 'w2t':
-                    raise Exception('Error: Model cnn1-bn-w2t only supports ONLY tasks w2t!')
-                model = cnn1_bn_w2t.Model(data, decoder_vocabulary_length, FLAGS)
-            elif FLAGS.model == 'cnn1-att-a-w2t':
+                    raise Exception('Error: Model cnn12-bn-w2t only supports ONLY tasks w2t!')
+                model = cnn12_bn_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn13-bn-w2t':
                 if FLAGS.task != 'w2t':
-                    raise Exception('Error: Model cnn1-att-a-w2t only supports ONLY tasks w2t!')
-                model = cnn1_att_a_w2t.Model(data, decoder_vocabulary_length, FLAGS)
-            elif FLAGS.model == 'cnn1-bn-att-a-w2t':
+                    raise Exception('Error: Model cnn13-bn-w2t only supports ONLY tasks w2t!')
+                model = cnn13_bn_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn12-att-a-w2t':
                 if FLAGS.task != 'w2t':
-                    raise Exception('Error: Model cnn1-bn-att-a-w2t only supports ONLY tasks w2t!')
-                model = cnn1_bn_att_a_w2t.Model(data, decoder_vocabulary_length, FLAGS)
-            elif FLAGS.model == 'cnn1-att-b-w2t':
+                    raise Exception('Error: Model cnn12-att-a-w2t only supports ONLY tasks w2t!')
+                model = cnn12_att_a_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn12-bn-att-a-w2t':
                 if FLAGS.task != 'w2t':
-                    raise Exception('Error: Model cnn1-att-b-w2t only supports ONLY tasks w2t!')
-                model = cnn1_att_b_w2t.Model(data, decoder_vocabulary_length, FLAGS)
-            elif FLAGS.model == 'cnn2-w2t':
+                    raise Exception('Error: Model cnn12-bn-att-a-w2t only supports ONLY tasks w2t!')
+                model = cnn12_bn_att_a_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn12-att-b-w2t':
                 if FLAGS.task != 'w2t':
-                    raise Exception('Error: Model cnn2-w2t only supports ONLY tasks w2t!')
+                    raise Exception('Error: Model cnn12-att-b-w2t only supports ONLY tasks w2t!')
+                model = cnn12_att_b_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn22-w2t':
+                if FLAGS.task != 'w2t':
+                    raise Exception('Error: Model cnn22-w2t only supports ONLY tasks w2t!')
                 model = cnn2_w2t.Model(data, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'rnn1-w2t':
                 if FLAGS.task != 'w2t':
