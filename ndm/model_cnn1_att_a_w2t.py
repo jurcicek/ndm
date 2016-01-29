@@ -4,7 +4,7 @@ import sys
 import tensorflow as tf
 
 from tf_ext.bricks import embedding, dense_to_one_hot, linear, conv2d, multicolumn_embedding, \
-    glorot_mul, reduce_max, dropout
+    glorot_mul, reduce_max, dropout, pow_1
 
 
 class Model:
@@ -64,7 +64,7 @@ class Model:
 
             with tf.name_scope("UtterancesEncoder"):
                 conv3 = histories_embedding
-                # conv3 = dropout(conv3, dropout_keep_prob)
+                # conv3 = dropout(conv3, pow_1(dropout_keep_prob, 2))
                 conv3 = conv2d(
                         input=conv3,
                         filter=[1, 3, conv3.size, conv3.size * conv_mul],
@@ -75,13 +75,13 @@ class Model:
 
             with tf.name_scope("HistoryEncoder"):
                 conv3 = encoded_utterances
-                conv3 = dropout(conv3, dropout_keep_prob)
+                conv3 = dropout(conv3, pow_1(dropout_keep_prob, 2))
                 conv3 = conv2d(
                         input=conv3,
                         filter=[3, 1, conv3.size, conv3.size * conv_mul],
                         name='conv_hist_size_3_layer_1'
                 )
-                conv3 = dropout(conv3, dropout_keep_prob)
+                conv3 = dropout(conv3, pow_1(dropout_keep_prob, 2))
                 conv3 = conv2d(
                         input=conv3,
                         filter=[3, 1, conv3.size, conv3.size * conv_mul],

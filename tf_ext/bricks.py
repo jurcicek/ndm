@@ -19,6 +19,14 @@ def dropout(x, keep_prob, noise_shape=None, seed=None, name=None):
 
     return d
 
+def pow_1(x, y):
+    """Rises power of x as a complement of 1.
+
+    :param x:
+    :param y:
+    :return:
+    """
+    return 1 - tf.pow(1-x, y)
 
 def reduce_max(input_tensor, reduction_indices=None, keep_dims=False, name=None):
     r = tf.reduce_max(input_tensor, reduction_indices, keep_dims, name)
