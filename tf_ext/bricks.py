@@ -28,10 +28,10 @@ def pow_1(x, y):
     """
     return 1 - tf.pow(1-x, y)
 
-def reduce_max(input_tensor, reduction_indices=None, keep_dims=False, name=None):
-    r = tf.reduce_max(input_tensor, reduction_indices, keep_dims, name)
+def reduce_max(input, reduction_indices=None, keep_dims=False, name=None):
+    r = tf.reduce_max(input, reduction_indices, keep_dims, name)
 
-    r.size = getattr(input_tensor, 'size', None)
+    r.size = getattr(input, 'size', None)
 
     return r
 
@@ -175,6 +175,8 @@ def max_pool(input, ksize, strides, name='max_pool'):
         y = tf.nn.max_pool(input, ksize, strides, padding='SAME')
         y.ksize = ksize
         y.strides = strides
+
+        y.size = getattr(input, 'size', None)
     return y
 
 

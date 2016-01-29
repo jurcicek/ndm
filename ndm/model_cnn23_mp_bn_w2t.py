@@ -48,6 +48,13 @@ class Model:
                         phase_train=phase_train,
                         name='conv_utt_size_3_layer_1'
                 )
+                conv3 = max_pool(conv3, ksize=[1, 1, 2, 1], strides=[1, 1, 2, 1])
+                conv3 = conv2d_bn(
+                        input=conv3,
+                        filter=[1, 3, conv3.size, conv3.size * conv_mul],
+                        phase_train=phase_train,
+                        name='conv_utt_size_3_layer_2'
+                )
 
                 encoded_utterances = reduce_max(conv3, [2], keep_dims=True)
 
@@ -67,6 +74,14 @@ class Model:
                         filter=[3, 1, conv3.size, conv3.size * conv_mul],
                         phase_train=phase_train,
                         name='conv_hist_size_3_layer_2'
+                )
+                conv3 = max_pool(conv3, ksize=[1, 2, 1, 1], strides=[1, 2, 1, 1])
+                conv3 = dropout(conv3, pow_1(dropout_keep_prob, 2))
+                conv3 = conv2d_bn(
+                        input=conv3,
+                        filter=[3, 1, conv3.size, conv3.size * conv_mul],
+                        phase_train=phase_train,
+                        name='conv_hist_size_3_layer_3'
                 )
 
                 encoded_history = reduce_max(conv3, [1, 2])
@@ -89,7 +104,7 @@ class Model:
                         name='dialogue_state'
                 )
                 dialogue_state_size = conv3.size + \
-                                      3 * histories_embedding_size * conv_mul
+                                      3 * histories_embedding_size * conv_mul * conv_mul
 
                 activation = tf.nn.relu(dialogue_state)
                 activation = dropout(activation, dropout_keep_prob)

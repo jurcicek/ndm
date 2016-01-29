@@ -12,10 +12,13 @@ import model_rnn_w2w as rnn_w2w
 import model_cnn02_w2t as cnn02_w2t
 import model_cnn12_w2t as cnn12_w2t
 import model_cnn12_bn_w2t as cnn12_bn_w2t
+import model_cnn12_mp_bn_w2t as cnn12_mp_bn_w2t
 import model_cnn12_att_a_w2t as cnn12_att_a_w2t
 import model_cnn12_bn_att_a_w2t as cnn12_bn_att_a_w2t
 import model_cnn13_bn_w2t as cnn13_bn_w2t
+import model_cnn13_mp_bn_w2t as cnn13_mp_bn_w2t
 import model_cnn22_w2t as cnn2_w2t
+import model_cnn23_mp_bn_w2t as cnn23_mp_bn_w2t
 import model_rnn1_w2t as rnn1_w2t
 import model_rnn2_w2t as rnn2_w2t
 
@@ -29,10 +32,13 @@ flags.DEFINE_string('model', 'cnn-w2w', '"cnn-w2w" (convolutional network for st
                                         '"cnn02-w2t" (convolutional network for state tracking - words 2 template | '
                                         '"cnn12-w2t" (convolutional network for state tracking - words 2 template | '
                                         '"cnn12-bn_w2t" (convolutional network for state tracking - words 2 template | '
+                                        '"cnn12-mp-bn_w2t" (convolutional network for state tracking - words 2 template | '
                                         '"cnn12-att-a-w2t" (convolutional network for state tracking with attention model - words 2 template | '
                                         '"cnn12-bn-att-a-w2t" (convolutional network for state tracking with attention model - words 2 template | '
-                                        '"cnn13-bn_w2t" (convolutional network for state tracking - words 2 template | '
+                                        '"cnn13-bn-w2t" (convolutional network for state tracking - words 2 template | '
+                                        '"cnn13-mp-bn-w2t" (convolutional network for state tracking - words 2 template | '
                                         '"cnn22-w2t" (convolutional network for state tracking - words 2 template | '
+                                        '"cnn23-mp-bn-w2t" (convolutional network for state tracking - words 2 template | '
                                         '"rnn1-w2t" (forward only recurrent network for state tracking - words 2 template | '
                                         '"rnn2-w2t" (bidirectional recurrent network for state tracking - words 2 template)')
 flags.DEFINE_string('task', 'tracker', '"tracker" (dialogue state tracker) | '
@@ -399,10 +405,18 @@ def main(_):
                 if FLAGS.task != 'w2t':
                     raise Exception('Error: Model cnn12-bn-w2t only supports ONLY tasks w2t!')
                 model = cnn12_bn_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn12-mp-bn-w2t':
+                if FLAGS.task != 'w2t':
+                    raise Exception('Error: Model cnn12-mp-bn-w2t only supports ONLY tasks w2t!')
+                model = cnn12_mp_bn_w2t.Model(data, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'cnn13-bn-w2t':
                 if FLAGS.task != 'w2t':
                     raise Exception('Error: Model cnn13-bn-w2t only supports ONLY tasks w2t!')
                 model = cnn13_bn_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn13-mp-bn-w2t':
+                if FLAGS.task != 'w2t':
+                    raise Exception('Error: Model cnn13-mp-bn-w2t only supports ONLY tasks w2t!')
+                model = cnn13_mp_bn_w2t.Model(data, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'cnn12-att-a-w2t':
                 if FLAGS.task != 'w2t':
                     raise Exception('Error: Model cnn12-att-a-w2t only supports ONLY tasks w2t!')
@@ -419,6 +433,10 @@ def main(_):
                 if FLAGS.task != 'w2t':
                     raise Exception('Error: Model cnn22-w2t only supports ONLY tasks w2t!')
                 model = cnn2_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn23-mp-bn-w2t':
+                if FLAGS.task != 'w2t':
+                    raise Exception('Error: Model cnn23-mp-bn-w2t only supports ONLY tasks w2t!')
+                model = cnn23_mp_bn_w2t.Model(data, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'rnn1-w2t':
                 if FLAGS.task != 'w2t':
                     raise Exception('Error: Model rnn1-w2t only supports ONLY tasks w2t!')
