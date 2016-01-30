@@ -38,27 +38,30 @@ def start_experiment(FLAGS):
 
 
 class LogMessage:
-    def __init__(self, msg=None, time=False):
+    filename = 'log.txt'
+
+    def __init__(self, msg=None, time=False, log_fn='log.txt'):
         if msg:
             self.msg = [msg, ]
         else:
             self.msg = []
         self.time = time
+        self.filename = log_fn
 
     def add(self, m=''):
         self.msg.append(str(m))
 
     @staticmethod
-    def add_flush(msg):
+    def write(msg):
         msg = str(msg)
-        with open(os.path.join(exp_dir, 'log.txt'), 'ta') as l:
+        with open(os.path.join(exp_dir, LogMessage.filename), 'ta') as l:
             l.write(msg)
 
         print(msg, end='', flush=True)
 
-    def log(self, end='\n'):
+    def log(self, end='\n', print_console=True):
         msg = end.join(self.msg)
-        with open(os.path.join(exp_dir, 'log.txt'), 'ta') as l:
+        with open(os.path.join(exp_dir, self.filename), 'ta') as l:
             if self.time:
                 l.write('Time stamp: {s}'.format(s=dt()))
                 l.write('\n')
@@ -66,6 +69,8 @@ class LogMessage:
             l.write(msg)
             l.write('\n')
 
-        print(msg)
+        if print_console:
+            print(msg)
 
         self.msg = []
+
