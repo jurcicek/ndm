@@ -362,7 +362,7 @@ def train(model, targets, idx2word_target):
             m.log()
 
             # decrease learning rate if no improvement was seen over last 3 episodes.
-            if len(test_previous_losses) > 2 and test_lss > max(test_previous_losses[-3:]):
+            if len(test_previous_losses) > 2 and test_lss > max(test_previous_losses[-2:]):
                 sess.run(learning_rate_decay_op)
             test_previous_losses.append(test_lss)
 
