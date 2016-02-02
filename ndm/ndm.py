@@ -376,7 +376,7 @@ def train(model, targets, idx2word_target):
                 test_predictions, test_acc, test_lss = \
                     evaluate_w2w(epoch, learning_rate, merged_summaries, model, sess, targets, use_inputs_prob, writer)
 
-            if epoch == 0 or dev_acc > max(dev_previous_accuracies):
+            if epoch == 0 or dev_lss < min(dev_previous_losses):
                 max_epoch = epoch
 
                 model_fn = saver.save(sess, os.path.join(logging.exp_dir, "model.ckpt"))
@@ -413,7 +413,7 @@ def train(model, targets, idx2word_target):
 
             m = LogMessage()
             m.add()
-            m.add("Epoch with max accuracy on dev data: {d}".format(d=max_epoch))
+            m.add("Epoch with min loss on dev data: {d}".format(d=max_epoch))
             m.add()
             m.log()
 
@@ -423,7 +423,8 @@ def train(model, targets, idx2word_target):
             dev_previous_losses.append(dev_lss)
 
             # stop when reached a threshold maximum or when no improvement on loss in the last 100 steps
-            if dev_acc > 0.9999 or max(dev_previous_losses) > max(dev_previous_losses[-100:]):
+            if dev_acc > 0.9999 or \
+                len(dev_previous_losses) > 12 and min(dev_previous_losses[:-10]) < min(dev_previous_losses[-10:]):
                 break
 
             dev_previous_accuracies.append(dev_acc)
