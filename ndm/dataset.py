@@ -51,7 +51,7 @@ def gen_examples(text_data, input):
                 scores.append(score)  # the score of the last ASR user input
 
                 state = prev_turn[4]  # the dialogue state
-                action = turn[0]      # the system action / response
+                action = turn[0]  # the system action / response
                 examples.append(deepcopy([history, state, action]))
             prev_turn = turn
 
@@ -139,7 +139,7 @@ def get_idx2word(examples):
             idx2word_action_templates)
 
 
-def get_indexes(dct, add_sos = True, add_eos=True, add_oov=True):
+def get_indexes(dct, add_sos=True, add_eos=True, add_oov=True):
     idx2word = []
     if add_sos:
         idx2word.append('_SOS_')
@@ -151,6 +151,22 @@ def get_indexes(dct, add_sos = True, add_eos=True, add_oov=True):
     dct = [word for word in dct if dct[word] >= 2]
     idx2word.extend(sorted(dct))
     return idx2word
+
+
+def get_padding(abstract_train_examples):
+    max_length_history = 0
+    max_length_utterance = 0
+    max_length_state = 0
+    max_length_action = 0
+    for abs_history, history_arguments, abs_state, abs_action, action_arguments, action_template in abstract_train_examples:
+        for utterance in abs_history:
+            max_length_utterance = max(max_length_utterance, len(utterance))
+
+        max_length_history = max(max_length_history, len(abs_history))
+        max_length_state = max(max_length_state, len(abs_state))
+        max_length_action = max(max_length_action, len(abs_action))
+
+    return max_length_action, max_length_history, max_length_state, max_length_utterance
 
 
 def index_and_pad_utterance(utterance, word2idx, max_length, add_sos=True):
@@ -217,7 +233,7 @@ def index_and_pad_examples(examples,
         ip_action_template = index_action_template(action_template, word2idx_action_template)
 
         index_pad_examples.append(
-                [ip_history, ip_history_arguments, ip_state, ip_action, ip_action_arguments, ip_action_template])
+            [ip_history, ip_history_arguments, ip_state, ip_action, ip_action_arguments, ip_action_template])
 
     return index_pad_examples
 
@@ -263,22 +279,86 @@ def gen_database(database_data):
 
     return database, columns, idx2word, word2idx
 
+
 class DSTC2:
-    def __init__(self, mode, input, train_data_fn, data_fraction, test_data_fn, ontology_fn, database_fn, batch_size):
+    def __init__(self, input, data_fraction, train_data_fn, dev_data_fn, test_data_fn, ontology_fn, database_fn,
+                 batch_size):
         self.ontology = ontology.Ontology(ontology_fn, database_fn)
 
         database_data = load_json_data(database_fn)
-        database, database_columns, database_idx2word, database_word2idx = gen_database(database_data)
-        database = np.asarray(database, dtype=np.int32)
+        database, \
+        self.database_columns, \
+        self.database_idx2word, \
+        self.database_word2idx = gen_database(database_data)
+        self.database = np.asarray(database, dtype=np.int32)
 
+        train_histories, \
+        train_histories_arguments, \
+        train_states, \
+        train_actions, \
+        train_actions_arguments, \
+        train_actions_template = self.train_data_processing(input, train_data_fn, data_fraction)
+
+        self.train_set = {
+            'histories': train_histories,
+            'histories_arguments': train_histories_arguments,
+            'states': train_states,
+            'actions': train_actions,
+            'actions_arguments': train_actions_arguments,
+            'actions_template': train_actions_template
+        }
+        self.train_set_size = len(self.train_set['histories'])
+
+        dev_histories, \
+        dev_histories_arguments, \
+        dev_states, \
+        dev_actions, \
+        dev_actions_arguments, \
+        dev_actions_template = self.data_processing(input, dev_data_fn, data_fraction)
+
+        self.dev_set = {
+            'histories': dev_histories,
+            'histories_arguments': dev_histories_arguments,
+            'states': dev_states,
+            'actions': dev_actions,
+            'actions_arguments': dev_actions_arguments,
+            'actions_template': dev_actions_template
+        }
+        self.dev_set_size = len(self.dev_set['histories'])
+
+        test_histories, \
+        test_histories_arguments, \
+        test_states, \
+        test_actions, \
+        test_actions_arguments, \
+        test_actions_template = self.data_processing(input, test_data_fn, data_fraction)
+
+        self.test_set = {
+            'histories': test_histories,
+            'histories_arguments': test_histories_arguments,
+            'states': test_states,
+            'actions': test_actions,
+            'actions_arguments': test_actions_arguments,
+            'actions_template': test_actions_template
+        }
+        self.test_set_size = len(self.test_set['histories'])
+
+        self.batch_size = batch_size
+        self.train_batch_indexes = [[i, i + batch_size] for i in range(0, self.train_set_size, batch_size)]
+
+        # print(idx2word_history)
+        # print(word2idx_history)
+        # print()
+        # print(idx2word_state)
+        # print(word2idx_state)
+        # sys.exit(0)
+
+    def train_data_processing(self, input, train_data_fn, data_fraction):
         train_data = load_json_data(train_data_fn)
         train_data = train_data[:int(len(train_data) * min(data_fraction, 1.0))]
-        test_data = load_json_data(test_data_fn)
-        test_data = test_data[:int(len(test_data) * min(data_fraction, 1.0))]
 
         train_examples = gen_examples(train_data, input)
-        test_examples = gen_examples(test_data, input)
-        # self.print_examples(train_examples
+        # self.print_examples(train_examples)
 
         norm_train_examples = normalize(train_examples)
         norm_train_examples = sort_by_conversation_length(norm_train_examples)
@@ -286,61 +366,50 @@ class DSTC2:
         norm_train_examples = norm_train_examples[:-int(len(norm_train_examples) / 10)]
         # print(norm_train_examples)
 
-        norm_test_examples = normalize(test_examples)
-        norm_test_examples = sort_by_conversation_length(norm_test_examples)
-        # remove 10 % of the longest dialogues
-        norm_test_examples = norm_test_examples[:-int(len(norm_test_examples) / 10)]
-
         abstract_train_examples = self.ontology.abstract(norm_train_examples)
-        abstract_test_examples = self.ontology.abstract(norm_test_examples)
-
         abstract_train_examples = add_action_templates(abstract_train_examples)
-        abstract_test_examples = add_action_templates(abstract_test_examples)
 
         # self.print_abstract_examples(abstract_train_examples)
-        #self.print_abstract_examples(abstract_test_examples)
 
-        idx2word_history, idx2word_history_arguments, \
-        idx2word_state, \
-        idx2word_action, idx2word_action_arguments, \
-        idx2word_action_template = get_idx2word(abstract_train_examples)
-        word2idx_history = get_word2idx(idx2word_history)
-        word2idx_history_arguments = get_word2idx(idx2word_history_arguments)
-        word2idx_state = get_word2idx(idx2word_state)
-        word2idx_action = get_word2idx(idx2word_action)
-        word2idx_action_arguments = get_word2idx(idx2word_action_arguments)
-        word2idx_action_template = get_word2idx(idx2word_action_template)
+        self.idx2word_history, \
+        self.idx2word_history_arguments, \
+        self.idx2word_state, \
+        self.idx2word_action, \
+        self.idx2word_action_arguments, \
+        self.idx2word_action_template = get_idx2word(abstract_train_examples)
 
-        # print(idx2word_history)
-        # print(idx2word_history_arguments)
-        # print(word2idx_state)
-        # print(len(idx2word_action), idx2word_action)
-        # print(len(idx2word_action_arguments), idx2word_action_arguments)
-        # print(len(idx2word_action_template), idx2word_action_template)
+        self.word2idx_history = get_word2idx(self.idx2word_history)
+        self.word2idx_history_arguments = get_word2idx(self.idx2word_history_arguments)
+        self.word2idx_state = get_word2idx(self.idx2word_state)
+        self.word2idx_action = get_word2idx(self.idx2word_action)
+        self.word2idx_action_arguments = get_word2idx(self.idx2word_action_arguments)
+        self.word2idx_action_template = get_word2idx(self.idx2word_action_template)
+
+        # print(self.idx2word_history)
+        # print(self.idx2word_history_arguments)
+        # print(self.word2idx_state)
+        # print(len(self.idx2word_action), self.idx2word_action)
+        # print(len(self.idx2word_action_arguments), self.idx2word_action_arguments)
+        # print(len(self.idx2word_action_template), self.idx2word_action_template)
         # print()
         # sys.exit(0)
 
-        max_length_history = 0
-        max_length_utterance = 0
-        max_length_state = 0
-        max_length_action = 0
-        for abs_history, history_arguments, abs_state, abs_action, action_arguments, action_template in abstract_train_examples:
-            for utterance in abs_history:
-                max_length_utterance = max(max_length_utterance, len(utterance))
-
-            max_length_history = max(max_length_history, len(abs_history))
-            max_length_state = max(max_length_state, len(abs_state))
-            max_length_action = max(max_length_action, len(abs_action))
+        self.max_length_action, \
+        self.max_length_history, \
+        self.max_length_state, \
+        self.max_length_utterance = \
+            get_padding(abstract_train_examples)
 
         # pad the data with _SOS_ and _EOS_ word symbols
         train_index_examples = index_and_pad_examples(
-                abstract_train_examples,
-                word2idx_history, max_length_history, max_length_utterance,
-                word2idx_history_arguments,
-                word2idx_state, max_length_state,
-                word2idx_action, max_length_action,
-                word2idx_action_arguments,
-                word2idx_action_template
+            abstract_train_examples,
+            self.word2idx_history,
+            self.max_length_history, self.max_length_utterance,
+            self.word2idx_history_arguments,
+            self.word2idx_state, self.max_length_state,
+            self.word2idx_action, self.max_length_action,
+            self.word2idx_action_arguments,
+            self.word2idx_action_template
         )
         # print(train_index_examples)
         # sys.exit(0)
@@ -367,92 +436,63 @@ class DSTC2:
         # print(train_actions_arguments)
         # print(train_actions_template)
 
-        test_index_examples = index_and_pad_examples(
-                abstract_test_examples,
-                word2idx_history, max_length_history, max_length_utterance,
-                word2idx_history_arguments,
-                word2idx_state, max_length_state,
-                word2idx_action, max_length_action,
-                word2idx_action_arguments,
-                word2idx_action_template
+        return (
+            train_histories,
+            train_histories_arguments,
+            train_states,
+            train_actions,
+            train_actions_arguments,
+            train_actions_template
         )
-        # print(test_index_examples)
+
+    def data_processing(self, input, data_fn, data_fraction):
+
+        data = load_json_data(data_fn)
+        data = data[:int(len(data) * min(data_fraction, 1.0))]
+        examples = gen_examples(data, input)
+        norm_examples = normalize(examples)
+        norm_examples = sort_by_conversation_length(norm_examples)
+        # remove 10 % of the longest dialogues
+        norm_examples = norm_examples[:-int(len(norm_examples) / 10)]
+        abstract_examples = self.ontology.abstract(norm_examples)
+        abstract_examples = add_action_templates(abstract_examples)
+        # self.print_abstract_examples(abstract_examples)
+
+        index_examples = index_and_pad_examples(
+            abstract_examples,
+            self.word2idx_history, self.max_length_history, self.max_length_utterance,
+            self.word2idx_history_arguments,
+            self.word2idx_state, self.max_length_state,
+            self.word2idx_action, self.max_length_action,
+            self.word2idx_action_arguments,
+            self.word2idx_action_template
+        )
+        # print(index_examples)
         # sys.exit(0)
 
-        # for history, target in test_index_examples:
+        # for history, target in index_examples:
         #     for utterance in history:
         #         print('U', len(utterance), utterance)
         #     print('T', len(target), target)
 
-        test_histories, \
-        test_histories_arguments, \
-        test_states, \
-        test_actions, \
-        test_actions_arguments, \
-        test_actions_template = self.unpack_index_examples(test_index_examples)
+        histories, \
+        histories_arguments, \
+        states, \
+        actions, \
+        actions_arguments, \
+        actions_template = self.unpack_index_examples(index_examples)
 
-        # print(test_histories)
-        # print(test_word_responses)
+        # print(histories)
+        # print(actions)
 
-        train_set = {
-            'histories': train_histories,
-            'histories_arguments': train_histories_arguments,
-            'states': train_states,
-            'actions': train_actions,
-            'actions_arguments': train_actions_arguments,
-            'actions_template': train_actions_template
-        }
-        dev_set = {
-            'histories': train_histories[:10:],
-            'histories_arguments': train_histories_arguments[:10:],
-            'states': train_states[:10:],
-            'actions': train_actions[:10:],
-            'actions_arguments': train_actions_arguments[:10:],
-            'actions_template': train_actions_template[:10:]
-        }
-        test_set = {
-            'histories': test_histories,
-            'histories_arguments': test_histories_arguments,
-            'states': test_states,
-            'actions': test_actions,
-            'actions_arguments': test_actions_arguments,
-            'actions_template': test_actions_template
-        }
-
-        self.database = database
-        self.database_columns = database_columns
-        self.database_idx2word = database_idx2word
-        self.database_word2idx = database_word2idx
-
-        self.train_set = train_set
-        self.train_set_size = len(train_set['histories'])
-        self.dev_set = dev_set
-        self.dev_set_size = len(dev_set['histories'])
-        self.test_set = test_set
-        self.test_set_size = len(test_set['histories'])
-
-        self.idx2word_history = idx2word_history
-        self.word2idx_history = word2idx_history
-        self.idx2word_history_arguments = idx2word_history_arguments
-        self.word2idx_history_arguments = word2idx_history_arguments
-        self.idx2word_state = idx2word_state
-        self.word2idx_state = word2idx_state
-        self.idx2word_action = idx2word_action
-        self.word2idx_action = word2idx_action
-        self.idx2word_action_arguments = idx2word_action_arguments
-        self.word2idx_action_arguments = word2idx_action_arguments
-        self.idx2word_action_template = idx2word_action_template
-        self.word2idx_action_template = word2idx_action_template
-
-        self.batch_size = batch_size
-        self.train_batch_indexes = [[i, i + batch_size] for i in range(0, self.train_set_size, batch_size)]
-
-        # print(idx2word_history)
-        # print(word2idx_history)
-        # print()
-        # print(idx2word_state)
-        # print(word2idx_state)
-        # sys.exit(0)
+        return (
+            histories,
+            histories_arguments,
+            states,
+            actions,
+            actions_arguments,
+            actions_template
+        )
 
     def unpack_index_examples(self, index_examples):
         histories = np.asarray([e[0] for e in index_examples], dtype=np.int32)

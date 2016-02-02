@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import sys
+from random import seed
 
 sys.path.extend(['..'])
 
@@ -50,8 +51,9 @@ flags.DEFINE_string('task', 'tracker', '"tracker" (dialogue state tracker) | '
                                        '"w2t" (word to template dialogue management)')
 flags.DEFINE_string('input', 'asr', '"asr" automatically recognised user input | '
                                     '"trs" manually transcribed user input')
-flags.DEFINE_string('train_data', './data.dstc2.traindev.json', 'The train data the model should be trained on.')
-flags.DEFINE_string('test_data', './data.dstc2.test.json', 'The test data the model should be trained on.')
+flags.DEFINE_string('train_data', './data.dstc2.train.json', 'The train data.')
+flags.DEFINE_string('dev_data', './data.dstc2.dev.json', 'The development data.')
+flags.DEFINE_string('test_data', './data.dstc2.test.json', 'The test data.')
 flags.DEFINE_float('data_fraction', 0.1, 'The fraction of data to usd to train model.')
 flags.DEFINE_string('ontology', './data.dstc2.ontology.json', 'The ontology defining slots and their values.')
 flags.DEFINE_string('database', './data.dstc2.db.json', 'The backend database defining entries that can be queried.')
@@ -164,6 +166,24 @@ def evaluate_w2t(epoch, learning_rate, merged, model, sess, targets, writer):
     m.log()
 
     m = LogMessage()
+    m.add('  Dev data')
+    dev_predictions, dev_lss, dev_acc = sess.run(
+        [model.predictions, model.loss, model.accuracy],
+        feed_dict={
+            model.database: model.data.database,
+            model.histories: model.dev_set['histories'],
+            model.histories_arguments: model.dev_set['histories_arguments'],
+            model.targets: model.dev_set[targets],
+            model.use_inputs_prob: 1.0,
+            model.dropout_keep_prob: 1.0,
+            model.phase_train: False,
+        }
+    )
+    m.add('    - accuracy      = {acc:f}'.format(acc=dev_acc))
+    m.add('    - loss          = {lss:f}'.format(lss=dev_lss))
+    m.log()
+
+    m = LogMessage()
     m.add('  Test data')
     summary, test_predictions, test_lss, test_acc = sess.run(
         [merged, model.predictions, model.loss, model.accuracy],
@@ -183,7 +203,9 @@ def evaluate_w2t(epoch, learning_rate, merged, model, sess, targets, writer):
     m.add()
     m.log()
 
-    return train_predictions, train_acc, train_lss, test_predictions, test_acc, test_lss
+    return train_predictions, train_acc, train_lss, \
+           dev_predictions, dev_acc, dev_lss, \
+           test_predictions, test_acc, test_lss
 
 
 def evaluate_w2w(epoch, learning_rate, merged, model, sess, targets, use_inputs_prob, writer):
@@ -192,6 +214,7 @@ def evaluate_w2w(epoch, learning_rate, merged, model, sess, targets, use_inputs_
     m.add('Epoch: {epoch}'.format(epoch=epoch))
     m.add('  - learning rate   = {lr:f}'.format(lr=learning_rate.eval()))
     m.add('  - use inputs prob = {uip:f}'.format(uip=use_inputs_prob))
+
     m.add('  Train data')
     train_predictions, train_lss, train_acc = sess.run(
         [model.predictions, model.loss, model.accuracy],
@@ -208,7 +231,7 @@ def evaluate_w2w(epoch, learning_rate, merged, model, sess, targets, use_inputs_
     m.add('    - use inputs prob = {uip:f}'.format(uip=1.0))
     m.add('      - accuracy      = {acc:f}'.format(acc=train_acc))
     m.add('      - loss          = {lss:f}'.format(lss=train_lss))
-    test_predictions, test_lss, test_acc = sess.run(
+    train_predictions, test_lss, test_acc = sess.run(
         [model.predictions, model.loss, model.accuracy],
         feed_dict={
             model.database: model.data.database,
@@ -223,8 +246,29 @@ def evaluate_w2w(epoch, learning_rate, merged, model, sess, targets, use_inputs_
     m.add('    - use inputs prob = {uip:f}'.format(uip=0.0))
     m.add('      - accuracy      = {acc:f}'.format(acc=test_acc))
     m.add('      - loss          = {lss:f}'.format(lss=test_lss))
-    summary, test_lss, test_acc = sess.run(
-        [merged, model.loss, model.accuracy],
+
+    summary, dev_predictions, dev_lss, dev_acc = sess.run(
+        [merged, model.predictions, model.loss, model.accuracy],
+        feed_dict={
+            model.database: model.data.database,
+            model.histories: model.dev_set['histories'],
+            model.histories_arguments: model.dev_set['histories_arguments'],
+            model.targets: model.dev_set[targets],
+            model.use_inputs_prob: 0.0,
+            model.dropout_keep_prob: 1.0,
+            model.phase_train: False,
+        }
+    )
+    writer.add_summary(summary, epoch)
+    m.add('  Dev data')
+    m.add('    - use inputs prob = {uip:f}'.format(uip=0.0))
+    m.add('      - accuracy      = {acc:f}'.format(acc=dev_acc))
+    m.add('      - loss          = {lss:f}'.format(lss=dev_lss))
+    m.add()
+    m.log()
+
+    test_predictions, test_lss, test_acc = sess.run(
+        [model.predictions, model.loss, model.accuracy],
         feed_dict={
             model.database: model.data.database,
             model.histories: model.test_set['histories'],
@@ -243,7 +287,9 @@ def evaluate_w2w(epoch, learning_rate, merged, model, sess, targets, use_inputs_
     m.add()
     m.log()
 
-    return train_predictions, train_acc, train_lss, test_predictions, test_acc, test_lss
+    return train_predictions, train_acc, train_lss, \
+           dev_predictions, dev_acc, dev_lss, \
+           test_predictions, test_acc, test_lss
 
 
 def train(model, targets, idx2word_target):
@@ -294,8 +340,8 @@ def train(model, targets, idx2word_target):
         m.add('#Batches:       {d}'.format(d=len(model.data.train_batch_indexes)))
         m.log()
 
-        test_previous_accuracies = []
-        test_previous_losses = []
+        dev_previous_accuracies = []
+        dev_previous_losses = []
         max_epoch = 0
         use_inputs_prob = 1.0
         for epoch in range(FLAGS.max_epochs):
@@ -321,14 +367,16 @@ def train(model, targets, idx2word_target):
             # evaluate the model
             if FLAGS.task == 'w2t':
                 train_predictions, train_acc, train_lss, \
+                dev_predictions, dev_acc, dev_lss, \
                 test_predictions, test_acc, test_lss = \
                     evaluate_w2t(epoch, learning_rate, merged_summaries, model, sess, targets, writer)
             else:
                 train_predictions, train_acc, train_lss, \
+                dev_predictions, dev_acc, dev_lss, \
                 test_predictions, test_acc, test_lss = \
                     evaluate_w2w(epoch, learning_rate, merged_summaries, model, sess, targets, use_inputs_prob, writer)
 
-            if epoch == 0 or test_acc > max(test_previous_accuracies):
+            if epoch == 0 or dev_acc > max(dev_previous_accuracies):
                 max_epoch = epoch
 
                 model_fn = saver.save(sess, os.path.join(logging.exp_dir, "model.ckpt"))
@@ -343,12 +391,20 @@ def train(model, targets, idx2word_target):
                     log_predictions_w2t('predictions_train_set.txt', model, model.train_set, predictions_argmax,
                                         targets,
                                         idx2word_target)
+                    predictions_argmax = np.argmax(dev_predictions, 1)
+                    log_predictions_w2t('predictions_dev_set.txt', model, model.dev_set, predictions_argmax,
+                                        targets,
+                                        idx2word_target)
                     predictions_argmax = np.argmax(test_predictions, 1)
                     log_predictions_w2t('predictions_test_set.txt', model, model.test_set, predictions_argmax, targets,
                                         idx2word_target)
                 else:
                     predictions_argmax = np.argmax(train_predictions, 2)
                     log_predictions_w2w('predictions_train_set.txt', model, model.train_set, predictions_argmax,
+                                        targets,
+                                        idx2word_target)
+                    predictions_argmax = np.argmax(dev_predictions, 2)
+                    log_predictions_w2w('predictions_dev_set.txt', model, model.dev_set, predictions_argmax,
                                         targets,
                                         idx2word_target)
                     predictions_argmax = np.argmax(test_predictions, 2)
@@ -361,15 +417,16 @@ def train(model, targets, idx2word_target):
             m.add()
             m.log()
 
-            # decrease learning rate if no improvement was seen over last 3 episodes.
-            if len(test_previous_losses) > 2 and test_lss > max(test_previous_losses[-2:]):
+            # decrease learning rate if no improvement was seen over last 2 episodes.
+            if len(dev_previous_losses) > 2 and dev_lss > max(dev_previous_losses[-2:]):
                 sess.run(learning_rate_decay_op)
-            test_previous_losses.append(test_lss)
+            dev_previous_losses.append(dev_lss)
 
-            # stop when reached a threshold maximum or when no improvement in the last 50 steps
-            test_previous_accuracies.append(test_acc)
-            if test_acc > 0.9999 or max(test_previous_accuracies) > max(test_previous_accuracies[-50:]):
+            # stop when reached a threshold maximum or when no improvement on loss in the last 100 steps
+            if dev_acc > 0.9999 or max(dev_previous_losses) > max(dev_previous_losses[-100:]):
                 break
+
+            dev_previous_accuracies.append(dev_acc)
 
         use_inputs_prob *= FLAGS.use_inputs_prob_decay
 
@@ -377,6 +434,7 @@ def train(model, targets, idx2word_target):
 def main(_):
     start_experiment(FLAGS)
 
+    tf.set_random_seed(1)
     graph = tf.Graph()
 
     with graph.as_default():
@@ -387,8 +445,9 @@ def main(_):
             m.add('    model                 = {model}'.format(model=FLAGS.model))
             m.add('    task                  = {t}'.format(t=FLAGS.task))
             m.add('    input                 = {i}'.format(i=FLAGS.input))
-            m.add('    train_data            = {train_data}'.format(train_data=FLAGS.train_data))
             m.add('    data_fraction         = {data_fraction}'.format(data_fraction=FLAGS.data_fraction))
+            m.add('    train_data            = {train_data}'.format(train_data=FLAGS.train_data))
+            m.add('    dev_data              = {dev_data}'.format(dev_data=FLAGS.dev_data))
             m.add('    test_data             = {test_data}'.format(test_data=FLAGS.test_data))
             m.add('    ontology              = {ontology}'.format(ontology=FLAGS.ontology))
             m.add('    database              = {database}'.format(database=FLAGS.database))
@@ -412,10 +471,10 @@ def main(_):
             m.log()
 
             data = dataset.DSTC2(
-                mode=FLAGS.task,
                 input=FLAGS.input,
-                train_data_fn=FLAGS.train_data,
                 data_fraction=FLAGS.data_fraction,
+                train_data_fn=FLAGS.train_data,
+                dev_data_fn=FLAGS.dev_data,
                 test_data_fn=FLAGS.test_data,
                 ontology_fn=FLAGS.ontology,
                 database_fn=FLAGS.database,
@@ -511,4 +570,5 @@ def main(_):
 
 
 if __name__ == '__main__':
+    seed(0)
     tf.app.run()

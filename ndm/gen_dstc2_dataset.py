@@ -99,7 +99,7 @@ if __name__ == '__main__':
     conversations_traindev = gen_data('./tmp/dstc2_traindev/data')
 
     conversations = conversations_test + conversations_traindev
-    seed(0)
+    sliceeed(0)
     shuffle(conversations)
 
     # I resplit the data as the train and test are not balanced

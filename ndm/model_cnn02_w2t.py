@@ -8,6 +8,9 @@ from tfx.bricks import embedding, dense_to_one_hot, linear, conv2d, max_pool, po
 
 class Model:
     def __init__(self, data, decoder_vocabulary_length, FLAGS):
+        with tf.variable_scope("phase_train"):
+            phase_train = tf.placeholder(tf.bool, name='phase_train')
+
         with tf.variable_scope("history_length"):
             history_length = data.train_set['histories'].shape[1]
 
@@ -109,6 +112,8 @@ class Model:
             correct_prediction = tf.equal(tf.argmax(one_hot_labels, 1), tf.argmax(predictions, 1))
             accuracy = tf.reduce_mean(tf.cast(correct_prediction, 'float'))
             tf.scalar_summary('accuracy', accuracy)
+
+        self.phase_train = phase_train
 
         self.data = data
 
