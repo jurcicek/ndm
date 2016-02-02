@@ -424,7 +424,7 @@ def train(model, targets, idx2word_target):
 
             # stop when reached a threshold maximum or when no improvement on loss in the last 100 steps
             if dev_acc > 0.9999 or \
-                len(dev_previous_losses) > 12 and min(dev_previous_losses[:-100]) < min(dev_previous_losses[-100:]):
+                len(dev_previous_losses) > 120 and min(dev_previous_losses[:-100]) < min(dev_previous_losses[-100:]):
                 break
 
             dev_previous_accuracies.append(dev_acc)
