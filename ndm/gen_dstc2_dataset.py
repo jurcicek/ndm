@@ -3,7 +3,7 @@ import glob
 import json
 import os
 import re
-from random import shuffle
+from random import shuffle, seed
 
 import wget
 
@@ -99,16 +99,18 @@ if __name__ == '__main__':
     conversations_traindev = gen_data('./tmp/dstc2_traindev/data')
 
     conversations = conversations_test + conversations_traindev
+    seed(0)
     shuffle(conversations)
 
     # I resplit the data as the train and test are not balanced
     # - there are only 16 'There are' phrases in the original traindev data
     # - but there are 1210 'There are' phrases in the original traindev data
 
-    len80 = int(len(conversations)*0.8)
-    with open('./data.dstc2.traindev.json', 'w') as f:
-        json.dump(conversations[:len80], f, sort_keys=True, indent=4, separators=(',', ': '))
-
+    len70 = int(len(conversations) * 0.7)
+    len80 = int(len(conversations) * 0.8)
+    with open('./data.dstc2.train.json', 'w') as f:
+        json.dump(conversations[:len70], f, sort_keys=True, indent=4, separators=(',', ': '))
+    with open('./data.dstc2.dev.json', 'w') as f:
+        json.dump(conversations[len70:len80], f, sort_keys=True, indent=4, separators=(',', ': '))
     with open('./data.dstc2.test.json', 'w') as f:
         json.dump(conversations[len80:], f, sort_keys=True, indent=4, separators=(',', ': '))
-
