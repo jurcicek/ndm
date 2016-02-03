@@ -5,6 +5,7 @@ from random import seed
 
 import multiprocessing
 from statistics import mean, stdev
+from time import sleep
 
 sys.path.extend(['..'])
 
@@ -437,15 +438,14 @@ def train(model, targets, idx2word_target):
             test_accuracies.append(test_acc)
 
             # stop when reached a threshold maximum or when no improvement on loss in the last 100 steps
-            if dev_acc > 0.9999 or \
-                                    len(dev_losses) > 120 and min(dev_losses[:-100]) < min(
-                        dev_losses[-100:]):
+            if epoch > min_loss_epoch + 100:
                 break
 
             use_inputs_prob *= FLAGS.use_inputs_prob_decay
 
             # save the results
             results = {
+                'epoch': epoch,
                 'min_loss_epoch_on_dev_data': min_loss_epoch,
                 'train_loss': str(train_losses[min_loss_epoch]),
                 'train_accuracy': str(train_accuracies[min_loss_epoch]),
@@ -617,28 +617,40 @@ if __name__ == '__main__':
 
         ps.append(p)
 
+    while FLAGS.runs > 1:
+        sleep(60)
+        dev_loss, dev_accuracy = [], []
+        epoch, min_loss_epoch_on_dev_data= [], []
+
+        for i, p in enumerate(ps):
+            e = logging.read_experiment(i)
+            min_loss_epoch_on_dev_data.append(int(e['min_loss_epoch_on_dev_data']))
+            epoch.append(int(e['epoch']))
+            dev_loss.append(float(e['dev_loss']))
+            dev_accuracy.append(float(e['dev_accuracy']))
+
+        m = LogMessage(time=True)
+        m.add('-'*80)
+        m.add('Experiment summary')
+        m.add('  runs = {runs}'.format(runs=FLAGS.runs))
+        m.add()
+        m.add('  epoch min          = {d}'.format(d=min(epoch)))
+        m.add('        max          = {d}'.format(d=max(epoch)))
+        m.add('  min_loss_epoch min = {d}'.format(d=min(min_loss_epoch_on_dev_data)))
+        m.add('                 max = {d}'.format(d=max(min_loss_epoch_on_dev_data)))
+        m.add()
+        m.add('  dev acc max        = {f}'.format(f=max(dev_accuracy)))
+        m.add('          mean       = {f}'.format(f=mean(dev_accuracy)))
+        if FLAGS.runs > 1:
+            m.add('          stdev      = {f}'.format(f=stdev(dev_accuracy)))
+        m.add('          min        = {f}'.format(f=min(dev_accuracy)))
+        m.add()
+        m.log()
+
     for i, p in enumerate(ps):
         p.join()
         print('Joining process {d}'.format(d=i))
 
-    dev_losses, dev_accuracies = [], []
-
-    for i, p in enumerate(ps):
-        e = logging.read_experiment(i)
-        dev_losses.append(float(e['dev_loss']))
-        dev_accuracies.append(float(e['dev_accuracy']))
-
-    m = LogMessage(time=True)
-    m.add()
-    m.add('Experiment summary')
-    m.add('  runs = {runs}'.format(runs=FLAGS.runs))
-    m.add()
-    m.add('  dev acc max   = {f}'.format(f=max(dev_accuracies)))
-    m.add('          mean  = {f}'.format(f=mean(dev_accuracies)))
-    if FLAGS.runs > 1:
-        m.add('          stdev = {f}'.format(f=stdev(dev_accuracies)))
-    m.add('          min   = {f}'.format(f=min(dev_accuracies)))
-    m.add()
-    m.log()
-
     print('All done')
+
+
