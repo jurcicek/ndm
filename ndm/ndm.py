@@ -623,29 +623,34 @@ if __name__ == '__main__':
         epoch, min_loss_epoch_on_dev_data= [], []
 
         for i, p in enumerate(ps):
-            e = logging.read_experiment(i)
-            min_loss_epoch_on_dev_data.append(int(e['min_loss_epoch_on_dev_data']))
-            epoch.append(int(e['epoch']))
-            dev_loss.append(float(e['dev_loss']))
-            dev_accuracy.append(float(e['dev_accuracy']))
+            try:
+                e = logging.read_experiment(i)
+                min_loss_epoch_on_dev_data.append(int(e['min_loss_epoch_on_dev_data']))
+                epoch.append(int(e['epoch']))
+                dev_loss.append(float(e['dev_loss']))
+                dev_accuracy.append(float(e['dev_accuracy']))
+            except FileNotFoundError:
+                pass
 
-        m = LogMessage(time=True)
-        m.add('-'*80)
-        m.add('Experiment summary')
-        m.add('  runs = {runs}'.format(runs=FLAGS.runs))
-        m.add()
-        m.add('  epoch min          = {d}'.format(d=min(epoch)))
-        m.add('        max          = {d}'.format(d=max(epoch)))
-        m.add('  min_loss_epoch min = {d}'.format(d=min(min_loss_epoch_on_dev_data)))
-        m.add('                 max = {d}'.format(d=max(min_loss_epoch_on_dev_data)))
-        m.add()
-        m.add('  dev acc max        = {f}'.format(f=max(dev_accuracy)))
-        m.add('          mean       = {f}'.format(f=mean(dev_accuracy)))
-        if FLAGS.runs > 1:
-            m.add('          stdev      = {f}'.format(f=stdev(dev_accuracy)))
-        m.add('          min        = {f}'.format(f=min(dev_accuracy)))
-        m.add()
-        m.log()
+        if len(epoch):
+            # run only if we have some stats
+            m = LogMessage(time=True)
+            m.add('-'*80)
+            m.add('Experiment summary')
+            m.add('  runs = {runs}'.format(runs=FLAGS.runs))
+            m.add()
+            m.add('  epoch min          = {d}'.format(d=min(epoch)))
+            m.add('        max          = {d}'.format(d=max(epoch)))
+            m.add('  min_loss_epoch min = {d}'.format(d=min(min_loss_epoch_on_dev_data)))
+            m.add('                 max = {d}'.format(d=max(min_loss_epoch_on_dev_data)))
+            m.add()
+            m.add('  dev acc max        = {f}'.format(f=max(dev_accuracy)))
+            m.add('          mean       = {f}'.format(f=mean(dev_accuracy)))
+            if FLAGS.runs > 1:
+                m.add('          stdev      = {f}'.format(f=stdev(dev_accuracy)))
+            m.add('          min        = {f}'.format(f=min(dev_accuracy)))
+            m.add()
+            m.log()
 
     for i, p in enumerate(ps):
         p.join()
