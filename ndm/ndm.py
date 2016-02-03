@@ -340,8 +340,8 @@ def train(model, targets, idx2word_target):
         m.add('#Batches:       {d}'.format(d=len(model.data.train_batch_indexes)))
         m.log()
 
-        dev_previous_accuracies = []
-        dev_previous_losses = []
+        train_previous_accuracies, train_previous_losses = [], []
+        dev_previous_accuracies, dev_previous_losses = [], []
         max_epoch = 0
         use_inputs_prob = 1.0
         for epoch in range(FLAGS.max_epochs):
@@ -417,17 +417,19 @@ def train(model, targets, idx2word_target):
             m.add()
             m.log()
 
-            # decrease learning rate if no improvement was seen over last 2 episodes.
-            if len(dev_previous_losses) > 2 and dev_lss > max(dev_previous_losses[-2:]):
-                sess.run(learning_rate_decay_op)
             dev_previous_losses.append(dev_lss)
-
+            dev_previous_accuracies.append(dev_acc)
             # stop when reached a threshold maximum or when no improvement on loss in the last 100 steps
             if dev_acc > 0.9999 or \
                 len(dev_previous_losses) > 120 and min(dev_previous_losses[:-100]) < min(dev_previous_losses[-100:]):
                 break
 
-            dev_previous_accuracies.append(dev_acc)
+            # decrease learning rate if no improvement was seen over last 4 episodes.
+            if len(train_previous_losses) > 10 and train_lss > max(train_previous_losses[-4:]):
+                sess.run(learning_rate_decay_op)
+            train_previous_losses.append(train_lss)
+
+
 
         use_inputs_prob *= FLAGS.use_inputs_prob_decay
 
