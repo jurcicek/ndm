@@ -17,8 +17,8 @@ def prepare_experiment(FLAGS):
                       '--data_fraction={data_fraction}' \
                       '--max_epochs={max_epochs}' \
                       '--batch_size={batch_size}' \
-                      '--learning_rate={learning_rate:f}' \
-                      '--dropout_keep_prob={dropout_keep_prob:f}'.format(
+                      '--learning_rate={learning_rate:e}' \
+                      '--dropout_keep_prob={dropout_keep_prob:e}'.format(
         date_time=dt(),
         model=FLAGS.model,
         data_fraction=FLAGS.data_fraction,

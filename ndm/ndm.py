@@ -442,20 +442,20 @@ def train(model, targets, idx2word_target):
                         dev_losses[-100:]):
                 break
 
-        use_inputs_prob *= FLAGS.use_inputs_prob_decay
+            use_inputs_prob *= FLAGS.use_inputs_prob_decay
 
-        # save the results
-        results = {
-            'min_loss_epoch_on_dev_data': min_loss_epoch,
-            'train_loss': str(train_losses[min_loss_epoch]),
-            'train_accuracy': str(train_accuracies[min_loss_epoch]),
-            'dev_loss': str(dev_losses[min_loss_epoch]),
-            'dev_accuracy': str(dev_accuracies[min_loss_epoch]),
-            'test_loss': str(test_losses[min_loss_epoch]),
-            'test_accuracy': str(test_accuracies[min_loss_epoch]),
-        }
+            # save the results
+            results = {
+                'min_loss_epoch_on_dev_data': min_loss_epoch,
+                'train_loss': str(train_losses[min_loss_epoch]),
+                'train_accuracy': str(train_accuracies[min_loss_epoch]),
+                'dev_loss': str(dev_losses[min_loss_epoch]),
+                'dev_accuracy': str(dev_accuracies[min_loss_epoch]),
+                'test_loss': str(test_losses[min_loss_epoch]),
+                'test_accuracy': str(test_accuracies[min_loss_epoch]),
+            }
 
-        LogExperiment(results)
+            LogExperiment(results)
 
 
 def main(run):
