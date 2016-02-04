@@ -425,7 +425,7 @@ def train(model, targets, idx2word_target):
             m.log()
 
             # decrease learning rate if no improvement was seen over last 4 episodes.
-            if len(train_losses) > 10 and train_lss > max(train_losses[-4:]):
+            if len(train_losses) > 6 and train_lss >= max(train_losses[-4:]) + 1e-10:
                 sess.run(learning_rate_decay_op)
 
             train_losses.append(train_lss)
@@ -620,7 +620,7 @@ if __name__ == '__main__':
     while FLAGS.runs > 1:
         sleep(60)
         dev_loss, dev_accuracy = [], []
-        epoch, min_loss_epoch_on_dev_data= [], []
+        epoch, min_loss_epoch_on_dev_data = [], []
 
         for i, p in enumerate(ps):
             try:
@@ -635,7 +635,7 @@ if __name__ == '__main__':
         if len(epoch):
             # run only if we have some stats
             m = LogMessage(time=True)
-            m.add('-'*80)
+            m.add('-' * 80)
             m.add('Experiment summary')
             m.add('  runs = {runs}'.format(runs=FLAGS.runs))
             m.add()
@@ -657,5 +657,3 @@ if __name__ == '__main__':
         print('Joining process {d}'.format(d=i))
 
     print('All done')
-
-
