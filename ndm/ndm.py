@@ -42,8 +42,8 @@ flags.DEFINE_string('model', 'cnn-w2w', '"cnn-w2w" (convolutional network for st
                                         '"rnn-w2w" (bidirectional recurrent network for state tracking - words 2 words) | '
                                         '"cnn02-w2t" (convolutional network for state tracking - words 2 template | '
                                         '"cnn12-w2t" (convolutional network for state tracking - words 2 template | '
-                                        '"cnn12-bn_w2t" (convolutional network for state tracking - words 2 template | '
-                                        '"cnn12-mp-bn_w2t" (convolutional network for state tracking - words 2 template | '
+                                        '"cnn12-bn-w2t" (convolutional network for state tracking - words 2 template | '
+                                        '"cnn12-mp-bn-w2t" (convolutional network for state tracking - words 2 template | '
                                         '"cnn12-att-a-w2t" (convolutional network for state tracking with attention model - words 2 template | '
                                         '"cnn12-bn-att-a-w2t" (convolutional network for state tracking with attention model - words 2 template | '
                                         '"cnn13-bn-w2t" (convolutional network for state tracking - words 2 template | '
@@ -486,7 +486,7 @@ def main(run):
             m.add('    database              = {database}'.format(database=FLAGS.database))
             m.add('    max_epochs            = {max_epochs}'.format(max_epochs=FLAGS.max_epochs))
             m.add('    batch_size            = {batch_size}'.format(batch_size=FLAGS.batch_size))
-            m.add('    learning_rate         = {learning_rate}'.format(learning_rate=FLAGS.learning_rate))
+            m.add('    learning_rate         = {learning_rate:e}'.format(learning_rate=FLAGS.learning_rate))
             m.add('    decay                 = {decay}'.format(decay=FLAGS.decay))
             m.add('    beta1                 = {beta1}'.format(beta1=FLAGS.beta1))
             m.add('    beta2                 = {beta2}'.format(beta2=FLAGS.beta2))
