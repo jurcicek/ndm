@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime
 
@@ -8,18 +9,17 @@ def dt():
     return datetime.now().isoformat().replace('T', '--').replace(':', '-')
 
 
-def start_experiment(FLAGS):
+def prepare_experiment(FLAGS):
     global exp_dir
 
-    date_time = dt()
-    exp_dir = './experiments/{date_time}' \
-              '--model={model}' \
-              '--data_fraction={data_fraction}' \
-              '--max_epochs={max_epochs}' \
-              '--batch_size={batch_size}' \
-              '--learning_rate={learning_rate}' \
-              '--dropout_keep_prob={dropout_keep_prob}'.format(
-        date_time=date_time,
+    experiment_name = '{date_time}' \
+                      '--model={model}' \
+                      '--data_fraction={data_fraction}' \
+                      '--max_epochs={max_epochs}' \
+                      '--batch_size={batch_size}' \
+                      '--learning_rate={learning_rate:e}' \
+                      '--dropout_keep_prob={dropout_keep_prob:e}'.format(
+        date_time=dt(),
         model=FLAGS.model,
         data_fraction=FLAGS.data_fraction,
         max_epochs=FLAGS.max_epochs,
@@ -27,14 +27,32 @@ def start_experiment(FLAGS):
         learning_rate=FLAGS.learning_rate,
         dropout_keep_prob=FLAGS.dropout_keep_prob,
     )
-    print('Log directory: {exp_dir}'.format(exp_dir=exp_dir))
 
-    os.mkdir(exp_dir)
+    exp_dir = os.path.join('./experiments', experiment_name)
+
+    try:
+        os.mkdir(exp_dir)
+    except FileExistsError:
+        pass
+
     os.system("mkdir {d}/ndm".format(d=exp_dir))
     os.system("cp ./*.py {d}/ndm".format(d=exp_dir))
     os.system("cp ./*.json {d}/ndm".format(d=exp_dir))
     os.system("mkdir {d}/tfx".format(d=exp_dir))
     os.system("cp ../tfx/*.py {d}/tfx".format(d=exp_dir))
+
+    return exp_dir
+
+
+def start_experiment(run):
+    global exp_dir
+
+    exp_dir = os.path.join(exp_dir, 'run-{d:03}'.format(d=run))
+    try:
+        os.mkdir(exp_dir)
+    except FileExistsError:
+        pass
+    print('Log directory: {exp_dir}'.format(exp_dir=exp_dir))
 
 
 class LogMessage:
@@ -73,4 +91,16 @@ class LogMessage:
             print(msg)
 
         self.msg = []
+
+
+class LogExperiment:
+    filename = 'experiment.json'
+
+    def __init__(self, results):
+        with open(os.path.join(exp_dir, LogExperiment.filename), 'tw') as js:
+            json.dump(results, js, sort_keys=True, indent=4, separators=(',', ': '))
+
+def read_experiment(run):
+    with open(os.path.join(exp_dir, 'run-{d:03}'.format(d=run), 'experiment.json'), 'r') as js:
+        return json.load(js)
 

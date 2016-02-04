@@ -3,6 +3,10 @@ import os
 import sys
 from random import seed
 
+import multiprocessing
+from statistics import mean, stdev
+from time import sleep
+
 sys.path.extend(['..'])
 
 import numpy as np
@@ -26,12 +30,14 @@ import model_rnn2_w2t as rnn2_w2t
 
 from tfx.bricks import device_for_node_cpu
 from tfx.optimizers import AdamPlusOptimizer, AdamPlusCovOptimizer
-from tfx.logging import start_experiment, LogMessage
+from tfx.logging import start_experiment, LogMessage, LogExperiment
 
 import tfx.logging as logging
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
+flags.DEFINE_integer('runs', 1, 'Number of parallel runs of the trainer.')
+flags.DEFINE_integer('threads', 2, 'Number of parallel threads for each run.')
 flags.DEFINE_string('model', 'cnn-w2w', '"cnn-w2w" (convolutional network for state tracking - words 2 words ) | '
                                         '"rnn-w2w" (bidirectional recurrent network for state tracking - words 2 words) | '
                                         '"cnn02-w2t" (convolutional network for state tracking - words 2 template | '
@@ -294,8 +300,8 @@ def evaluate_w2w(epoch, learning_rate, merged, model, sess, targets, use_inputs_
 
 def train(model, targets, idx2word_target):
     # with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-    with tf.Session(config=tf.ConfigProto(inter_op_parallelism_threads=2,
-                                          intra_op_parallelism_threads=2,
+    with tf.Session(config=tf.ConfigProto(inter_op_parallelism_threads=FLAGS.threads,
+                                          intra_op_parallelism_threads=FLAGS.threads,
                                           use_per_session_threads=True)) as sess:
         # Merge all the summaries and write them out to ./log
         merged_summaries = tf.merge_all_summaries()
@@ -340,9 +346,10 @@ def train(model, targets, idx2word_target):
         m.add('#Batches:       {d}'.format(d=len(model.data.train_batch_indexes)))
         m.log()
 
-        dev_previous_accuracies = []
-        dev_previous_losses = []
-        max_epoch = 0
+        train_accuracies, train_losses = [], []
+        dev_accuracies, dev_losses = [], []
+        test_accuracies, test_losses = [], []
+        min_loss_epoch = 0
         use_inputs_prob = 1.0
         for epoch in range(FLAGS.max_epochs):
             # update the model
@@ -376,8 +383,8 @@ def train(model, targets, idx2word_target):
                 test_predictions, test_acc, test_lss = \
                     evaluate_w2w(epoch, learning_rate, merged_summaries, model, sess, targets, use_inputs_prob, writer)
 
-            if epoch == 0 or dev_lss < min(dev_previous_losses):
-                max_epoch = epoch
+            if epoch == 0 or dev_lss < min(dev_losses):
+                min_loss_epoch = epoch
 
                 model_fn = saver.save(sess, os.path.join(logging.exp_dir, "model.ckpt"))
                 m = LogMessage()
@@ -413,29 +420,52 @@ def train(model, targets, idx2word_target):
 
             m = LogMessage()
             m.add()
-            m.add("Epoch with min loss on dev data: {d}".format(d=max_epoch))
+            m.add("Epoch with min loss on dev data: {d}".format(d=min_loss_epoch))
             m.add()
             m.log()
 
-            # decrease learning rate if no improvement was seen over last 2 episodes.
-            if len(dev_previous_losses) > 2 and dev_lss > max(dev_previous_losses[-2:]):
+            # decrease learning rate if no improvement was seen over last 4 episodes.
+            if len(train_losses) > 10 and train_lss > max(train_losses[-4:]):
                 sess.run(learning_rate_decay_op)
-            dev_previous_losses.append(dev_lss)
+
+            train_losses.append(train_lss)
+            train_accuracies.append(train_acc)
+
+            dev_losses.append(dev_lss)
+            dev_accuracies.append(dev_acc)
+
+            test_losses.append(test_lss)
+            test_accuracies.append(test_acc)
 
             # stop when reached a threshold maximum or when no improvement on loss in the last 100 steps
-            if dev_acc > 0.9999 or \
-                len(dev_previous_losses) > 120 and min(dev_previous_losses[:-100]) < min(dev_previous_losses[-100:]):
+            if epoch > min_loss_epoch + 100:
                 break
 
-            dev_previous_accuracies.append(dev_acc)
+            use_inputs_prob *= FLAGS.use_inputs_prob_decay
 
-        use_inputs_prob *= FLAGS.use_inputs_prob_decay
+            # save the results
+            results = {
+                'epoch': epoch,
+                'min_loss_epoch_on_dev_data': min_loss_epoch,
+                'train_loss': str(train_losses[min_loss_epoch]),
+                'train_accuracy': str(train_accuracies[min_loss_epoch]),
+                'dev_loss': str(dev_losses[min_loss_epoch]),
+                'dev_accuracy': str(dev_accuracies[min_loss_epoch]),
+                'test_loss': str(test_losses[min_loss_epoch]),
+                'test_accuracy': str(test_accuracies[min_loss_epoch]),
+            }
+
+            LogExperiment(results)
 
 
-def main(_):
-    start_experiment(FLAGS)
+def main(run):
+    start_experiment(run)
 
-    tf.set_random_seed(1)
+    if FLAGS.runs == 1:
+        # set the seed to constant
+        seed(0)
+        tf.set_random_seed(1)
+
     graph = tf.Graph()
 
     with graph.as_default():
@@ -443,6 +473,8 @@ def main(_):
             m = LogMessage(time=True)
             m.add('-' * 120)
             m.add('End to End Neural Dialogue Manager')
+            m.add('    runs                  = {runs}'.format(runs=FLAGS.runs))
+            m.add('    threads               = {threads}'.format(threads=FLAGS.threads))
             m.add('    model                 = {model}'.format(model=FLAGS.model))
             m.add('    task                  = {t}'.format(t=FLAGS.task))
             m.add('    input                 = {i}'.format(i=FLAGS.input))
@@ -571,5 +603,59 @@ def main(_):
 
 
 if __name__ == '__main__':
-    seed(0)
-    tf.app.run()
+    flags.FLAGS._parse_flags()
+    main = sys.modules['__main__'].main
+
+    exp_dir = logging.prepare_experiment(FLAGS)
+
+    ps = []
+    for i in range(FLAGS.runs):
+        print('Starting process {d}'.format(d=i))
+
+        p = multiprocessing.Process(target=main, args=(i,))
+        p.start()
+
+        ps.append(p)
+
+    while FLAGS.runs > 1:
+        sleep(60)
+        dev_loss, dev_accuracy = [], []
+        epoch, min_loss_epoch_on_dev_data= [], []
+
+        for i, p in enumerate(ps):
+            try:
+                e = logging.read_experiment(i)
+                min_loss_epoch_on_dev_data.append(int(e['min_loss_epoch_on_dev_data']))
+                epoch.append(int(e['epoch']))
+                dev_loss.append(float(e['dev_loss']))
+                dev_accuracy.append(float(e['dev_accuracy']))
+            except FileNotFoundError:
+                pass
+
+        if len(epoch):
+            # run only if we have some stats
+            m = LogMessage(time=True)
+            m.add('-'*80)
+            m.add('Experiment summary')
+            m.add('  runs = {runs}'.format(runs=FLAGS.runs))
+            m.add()
+            m.add('  epoch min          = {d}'.format(d=min(epoch)))
+            m.add('        max          = {d}'.format(d=max(epoch)))
+            m.add('  min_loss_epoch min = {d}'.format(d=min(min_loss_epoch_on_dev_data)))
+            m.add('                 max = {d}'.format(d=max(min_loss_epoch_on_dev_data)))
+            m.add()
+            m.add('  dev acc max        = {f}'.format(f=max(dev_accuracy)))
+            m.add('          mean       = {f}'.format(f=mean(dev_accuracy)))
+            if FLAGS.runs > 1:
+                m.add('          stdev      = {f}'.format(f=stdev(dev_accuracy)))
+            m.add('          min        = {f}'.format(f=min(dev_accuracy)))
+            m.add()
+            m.log()
+
+    for i, p in enumerate(ps):
+        p.join()
+        print('Joining process {d}'.format(d=i))
+
+    print('All done')
+
+
