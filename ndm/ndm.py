@@ -144,7 +144,7 @@ def evaluate_w2t(epoch, learning_rate, merged, model, sess, targets, writer):
     m = LogMessage()
     m.add('')
     m.add('Epoch: {epoch}'.format(epoch=epoch))
-    m.add('  - learning rate   = {lr:f}'.format(lr=learning_rate.eval()))
+    m.add('  - learning rate   = {lr:e}'.format(lr=learning_rate.eval()))
     m.log()
 
     m = LogMessage()
