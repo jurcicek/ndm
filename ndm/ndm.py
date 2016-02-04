@@ -21,6 +21,7 @@ import model_cnn12_bn_w2t as cnn12_bn_w2t
 import model_cnn12_mp_bn_w2t as cnn12_mp_bn_w2t
 import model_cnn12_att_a_w2t as cnn12_att_a_w2t
 import model_cnn12_bn_att_a_w2t as cnn12_bn_att_a_w2t
+import model_cnn12_mp_bn_att_a_w2t as cnn12_mp_bn_att_a_w2t
 import model_cnn13_bn_w2t as cnn13_bn_w2t
 import model_cnn13_mp_bn_w2t as cnn13_mp_bn_w2t
 import model_cnn22_w2t as cnn2_w2t
@@ -46,6 +47,7 @@ flags.DEFINE_string('model', 'cnn-w2w', '"cnn-w2w" (convolutional network for st
                                         '"cnn12-mp-bn-w2t" (convolutional network for state tracking - words 2 template | '
                                         '"cnn12-att-a-w2t" (convolutional network for state tracking with attention model - words 2 template | '
                                         '"cnn12-bn-att-a-w2t" (convolutional network for state tracking with attention model - words 2 template | '
+                                        '"cnn12-mp-bn-att-a-w2t" (convolutional network for state tracking with attention model - words 2 template | '
                                         '"cnn13-bn-w2t" (convolutional network for state tracking - words 2 template | '
                                         '"cnn13-mp-bn-w2t" (convolutional network for state tracking - words 2 template | '
                                         '"cnn22-w2t" (convolutional network for state tracking - words 2 template | '
@@ -576,6 +578,10 @@ def main(run):
                 if FLAGS.task != 'w2t':
                     raise Exception('Error: Model cnn12-bn-att-a-w2t only supports ONLY tasks w2t!')
                 model = cnn12_bn_att_a_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn12-mp-bn-att-a-w2t':
+                if FLAGS.task != 'w2t':
+                    raise Exception('Error: Model cnn12-mp-bn-att-a-w2t only supports ONLY tasks w2t!')
+                model = cnn12_mp_bn_att_a_w2t.Model(data, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'cnn12-att-b-w2t':
                 if FLAGS.task != 'w2t':
                     raise Exception('Error: Model cnn12-att-b-w2t only supports ONLY tasks w2t!')
