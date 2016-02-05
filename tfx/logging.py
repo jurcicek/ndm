@@ -104,3 +104,6 @@ def read_experiment(run):
     with open(os.path.join(exp_dir, 'run-{d:03}'.format(d=run), 'experiment.json'), 'r') as js:
         return json.load(js)
 
+
+def experiment_done(run):
+    return os.path.exists(os.path.join(exp_dir, 'run-{d:03}'.format(d=run), '.done'))

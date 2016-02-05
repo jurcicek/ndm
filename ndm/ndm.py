@@ -7,6 +7,7 @@ import multiprocessing
 from statistics import mean, stdev
 from time import sleep
 
+
 sys.path.extend(['..'])
 
 import numpy as np
@@ -21,6 +22,7 @@ import model_cnn12_bn_w2t as cnn12_bn_w2t
 import model_cnn12_mp_bn_w2t as cnn12_mp_bn_w2t
 import model_cnn12_att_a_w2t as cnn12_att_a_w2t
 import model_cnn12_bn_att_a_w2t as cnn12_bn_att_a_w2t
+import model_cnn12_bn_att_a_bn_w2t as cnn12_bn_att_a_bn_w2t
 import model_cnn12_mp_bn_att_a_w2t as cnn12_mp_bn_att_a_w2t
 import model_cnn13_bn_w2t as cnn13_bn_w2t
 import model_cnn13_mp_bn_w2t as cnn13_mp_bn_w2t
@@ -32,6 +34,7 @@ import model_rnn2_w2t as rnn2_w2t
 from tfx.bricks import device_for_node_cpu
 from tfx.optimizers import AdamPlusOptimizer, AdamPlusCovOptimizer
 from tfx.logging import start_experiment, LogMessage, LogExperiment
+from tfx.various import make_hash
 
 import tfx.logging as logging
 
@@ -47,6 +50,7 @@ flags.DEFINE_string('model', 'cnn-w2w', '"cnn-w2w" (convolutional network for st
                                         '"cnn12-mp-bn-w2t" (convolutional network for state tracking - words 2 template | '
                                         '"cnn12-att-a-w2t" (convolutional network for state tracking with attention model - words 2 template | '
                                         '"cnn12-bn-att-a-w2t" (convolutional network for state tracking with attention model - words 2 template | '
+                                        '"cnn12-bn-att-a-bn-w2t" (convolutional network for state tracking with attention model - words 2 template | '
                                         '"cnn12-mp-bn-att-a-w2t" (convolutional network for state tracking with attention model - words 2 template | '
                                         '"cnn13-bn-w2t" (convolutional network for state tracking - words 2 template | '
                                         '"cnn13-mp-bn-w2t" (convolutional network for state tracking - words 2 template | '
@@ -171,9 +175,7 @@ def evaluate_w2t(epoch, learning_rate, merged, model, sess, targets, writer):
     )
     m.add('    - accuracy      = {acc:f}'.format(acc=train_acc))
     m.add('    - loss          = {lss:f}'.format(lss=train_lss))
-    m.log()
 
-    m = LogMessage()
     m.add('  Dev data')
     dev_predictions, dev_lss, dev_acc = sess.run(
         [model.predictions, model.loss, model.accuracy],
@@ -189,9 +191,7 @@ def evaluate_w2t(epoch, learning_rate, merged, model, sess, targets, writer):
     )
     m.add('    - accuracy      = {acc:f}'.format(acc=dev_acc))
     m.add('    - loss          = {lss:f}'.format(lss=dev_lss))
-    m.log()
 
-    m = LogMessage()
     m.add('  Test data')
     summary, test_predictions, test_lss, test_acc = sess.run(
         [merged, model.predictions, model.loss, model.accuracy],
@@ -351,7 +351,7 @@ def train(model, targets, idx2word_target):
         train_accuracies, train_losses = [], []
         dev_accuracies, dev_losses = [], []
         test_accuracies, test_losses = [], []
-        min_loss_epoch = 0
+        max_accuracy_epoch = 0
         use_inputs_prob = 1.0
         for epoch in range(FLAGS.max_epochs):
             # update the model
@@ -385,8 +385,8 @@ def train(model, targets, idx2word_target):
                 test_predictions, test_acc, test_lss = \
                     evaluate_w2w(epoch, learning_rate, merged_summaries, model, sess, targets, use_inputs_prob, writer)
 
-            if epoch == 0 or dev_lss < min(dev_losses):
-                min_loss_epoch = epoch
+            if epoch == 0 or dev_acc > min(dev_accuracies):
+                max_accuracy_epoch = epoch
 
                 model_fn = saver.save(sess, os.path.join(logging.exp_dir, "model.ckpt"))
                 m = LogMessage()
@@ -422,7 +422,7 @@ def train(model, targets, idx2word_target):
 
             m = LogMessage()
             m.add()
-            m.add("Epoch with min loss on dev data: {d}".format(d=min_loss_epoch))
+            m.add("Epoch with min loss on dev data: {d}".format(d=max_accuracy_epoch))
             m.add()
             m.log()
 
@@ -439,8 +439,8 @@ def train(model, targets, idx2word_target):
             test_losses.append(test_lss)
             test_accuracies.append(test_acc)
 
-            # stop when reached a threshold maximum or when no improvement on loss in the last 100 steps
-            if epoch > min_loss_epoch + 100:
+            # stop when reached a threshold maximum or when no improvement of accuracy in the last 100 steps
+            if train_acc > .999 or epoch > max_accuracy_epoch + 100:
                 break
 
             use_inputs_prob *= FLAGS.use_inputs_prob_decay
@@ -448,16 +448,18 @@ def train(model, targets, idx2word_target):
             # save the results
             results = {
                 'epoch': epoch,
-                'min_loss_epoch_on_dev_data': min_loss_epoch,
-                'train_loss': str(train_losses[min_loss_epoch]),
-                'train_accuracy': str(train_accuracies[min_loss_epoch]),
-                'dev_loss': str(dev_losses[min_loss_epoch]),
-                'dev_accuracy': str(dev_accuracies[min_loss_epoch]),
-                'test_loss': str(test_losses[min_loss_epoch]),
-                'test_accuracy': str(test_accuracies[min_loss_epoch]),
+                'max_accuracy_epoch_on_dev_data': max_accuracy_epoch,
+                'train_loss': str(train_losses[max_accuracy_epoch]),
+                'train_accuracy': str(train_accuracies[max_accuracy_epoch]),
+                'dev_loss': str(dev_losses[max_accuracy_epoch]),
+                'dev_accuracy': str(dev_accuracies[max_accuracy_epoch]),
+                'test_loss': str(test_losses[max_accuracy_epoch]),
+                'test_accuracy': str(test_accuracies[max_accuracy_epoch]),
             }
 
             LogExperiment(results)
+
+    LogMessage(log_fn='.done', msg='done', time=True).log()
 
 
 def main(run):
@@ -488,7 +490,7 @@ def main(run):
             m.add('    database              = {database}'.format(database=FLAGS.database))
             m.add('    max_epochs            = {max_epochs}'.format(max_epochs=FLAGS.max_epochs))
             m.add('    batch_size            = {batch_size}'.format(batch_size=FLAGS.batch_size))
-            m.add('    learning_rate         = {learning_rate:e}'.format(learning_rate=FLAGS.learning_rate))
+            m.add('    learning_rate         = {learning_rate:2e}'.format(learning_rate=FLAGS.learning_rate))
             m.add('    decay                 = {decay}'.format(decay=FLAGS.decay))
             m.add('    beta1                 = {beta1}'.format(beta1=FLAGS.beta1))
             m.add('    beta2                 = {beta2}'.format(beta2=FLAGS.beta2))
@@ -578,6 +580,10 @@ def main(run):
                 if FLAGS.task != 'w2t':
                     raise Exception('Error: Model cnn12-bn-att-a-w2t only supports ONLY tasks w2t!')
                 model = cnn12_bn_att_a_w2t.Model(data, decoder_vocabulary_length, FLAGS)
+            elif FLAGS.model == 'cnn12-bn-att-a-bn-w2t':
+                if FLAGS.task != 'w2t':
+                    raise Exception('Error: Model cnn12-bn-att-a-bn-w2t only supports ONLY tasks w2t!')
+                model = cnn12_bn_att_a_bn_w2t.Model(data, decoder_vocabulary_length, FLAGS)
             elif FLAGS.model == 'cnn12-mp-bn-att-a-w2t':
                 if FLAGS.task != 'w2t':
                     raise Exception('Error: Model cnn12-mp-bn-att-a-w2t only supports ONLY tasks w2t!')
@@ -623,43 +629,57 @@ if __name__ == '__main__':
 
         ps.append(p)
 
+    summary_hash = 0
     while FLAGS.runs > 1:
-        sleep(60)
+        sleep(30)
         dev_loss, dev_accuracy = [], []
-        epoch, min_loss_epoch_on_dev_data = [], []
+        epoch, max_accuracy_epoch_on_dev_data = [], []
 
+        done_runs = 0
         for i, p in enumerate(ps):
             try:
                 e = logging.read_experiment(i)
-                min_loss_epoch_on_dev_data.append(int(e['min_loss_epoch_on_dev_data']))
                 epoch.append(int(e['epoch']))
+                max_accuracy_epoch_on_dev_data.append(int(e['max_accuracy_epoch_on_dev_data']))
                 dev_loss.append(float(e['dev_loss']))
                 dev_accuracy.append(float(e['dev_accuracy']))
             except FileNotFoundError:
                 pass
 
-        if len(epoch):
+            if logging.experiment_done(i):
+                # count number of finished runs
+                done_runs += 1
+
+        new_summary_hash = make_hash((epoch, max_accuracy_epoch_on_dev_data, dev_loss, dev_accuracy,))
+
+        if len(epoch) and summary_hash != new_summary_hash:
+            summary_hash = new_summary_hash
+
             # run only if we have some stats
             m = LogMessage(time=True)
             m.add('-' * 80)
             m.add('Experiment summary')
             m.add('  runs = {runs}'.format(runs=FLAGS.runs))
             m.add()
-            m.add('  epoch min          = {d}'.format(d=min(epoch)))
-            m.add('        max          = {d}'.format(d=max(epoch)))
-            m.add('  min_loss_epoch min = {d}'.format(d=min(min_loss_epoch_on_dev_data)))
-            m.add('                 max = {d}'.format(d=max(min_loss_epoch_on_dev_data)))
+            m.add('  epoch min              = {d}'.format(d=min(epoch)))
+            m.add('        max              = {d}'.format(d=max(epoch)))
+            m.add('  max_accuracy_epoch min = {d}'.format(d=min(max_accuracy_epoch_on_dev_data)))
+            m.add('                     max = {d}'.format(d=max(max_accuracy_epoch_on_dev_data)))
             m.add()
-            m.add('  dev acc max        = {f}'.format(f=max(dev_accuracy)))
-            m.add('          mean       = {f}'.format(f=mean(dev_accuracy)))
+            m.add('  dev acc max            = {f:6f}'.format(f=max(dev_accuracy)))
+            m.add('          mean           = {f:6f}'.format(f=mean(dev_accuracy)))
             if FLAGS.runs > 1:
-                m.add('          stdev      = {f}'.format(f=stdev(dev_accuracy)))
-            m.add('          min        = {f}'.format(f=min(dev_accuracy)))
+                m.add('          stdev          = {f:6f}'.format(f=stdev(dev_accuracy)))
+            m.add('          min            = {f:6f}'.format(f=min(dev_accuracy)))
             m.add()
             m.log()
 
-    for i, p in enumerate(ps):
-        p.join()
-        print('Joining process {d}'.format(d=i))
+        if done_runs >= len(ps):
+            # stop this loop when all runs are finished
+            break
+
+    # for i, p in enumerate(ps):
+    #     p.join()
+    #     print('Joining process {d}'.format(d=i))
 
     print('All done')

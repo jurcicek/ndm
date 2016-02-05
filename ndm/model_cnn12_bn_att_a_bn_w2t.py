@@ -14,6 +14,7 @@ class Model:
 
         history_length = data.train_set['histories'].shape[1]
 
+        database_size = data.database.shape[0]
         database_column_embedding_size = 8
         n_database_columns = len(data.database_columns)
 
@@ -121,6 +122,7 @@ class Model:
                 )
                 hp_x_att_W = tf.matmul(history_predicate, att_W)
                 attention_scores = tf.matmul(hp_x_att_W, database_embedding, transpose_b=True)
+                attention_scores = batch_norm_lin(attention_scores, database_size, phase_train, name='attention_scores_bn')
                 attention = tf.nn.softmax(attention_scores, name="attention_softmax")
                 print(attention)
 

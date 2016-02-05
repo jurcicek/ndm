@@ -14,6 +14,7 @@ class Model:
 
         history_length = data.train_set['histories'].shape[1]
 
+        database_size = data.database.shape[0]
         database_column_embedding_size = 8
         n_database_columns = len(data.database_columns)
 
@@ -108,6 +109,10 @@ class Model:
                 )
                 print(history_predicate)
 
+                attention_input = tf.concat(
+                    1,
+                    [history_predicate, database_embedding]
+                )
                 att_W_nx = conv3.size + n_histories_arguments * histories_arguments_embedding_size
                 att_W_ny = n_database_columns * database_column_embedding_size
 
