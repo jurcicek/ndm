@@ -422,7 +422,7 @@ def train(model, targets, idx2word_target):
 
             m = LogMessage()
             m.add()
-            m.add("Epoch with min loss on dev data: {d}".format(d=max_accuracy_epoch))
+            m.add("Epoch with max accuracy on dev data: {d}".format(d=max_accuracy_epoch))
             m.add()
             m.log()
 
