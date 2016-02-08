@@ -61,8 +61,9 @@ flags.DEFINE_string('model', 'cnn-w2w', '"cnn-w2w" (convolutional network for st
 flags.DEFINE_string('task', 'tracker', '"tracker" (dialogue state tracker) | '
                                        '"w2w" (word to word dialogue management) | '
                                        '"w2t" (word to template dialogue management)')
-flags.DEFINE_string('input', 'asr', '"asr" automatically recognised user input | '
-                                    '"trs" manually transcribed user input')
+flags.DEFINE_string('input', 'trs+asr', '"asr" automatically recognised user input | '
+                                        '"trs" manually transcribed user input | '
+                                        '"trs+asr" manually transcribed and automatically recognised user input')
 flags.DEFINE_string('train_data', './data.dstc2.train.json', 'The train data.')
 flags.DEFINE_string('dev_data', './data.dstc2.dev.json', 'The development data.')
 flags.DEFINE_string('test_data', './data.dstc2.test.json', 'The test data.')
@@ -157,9 +158,7 @@ def evaluate_w2t(epoch, learning_rate, merged, model, sess, targets, writer):
     m.add('')
     m.add('Epoch: {epoch}'.format(epoch=epoch))
     m.add('  - learning rate   = {lr:e}'.format(lr=learning_rate.eval()))
-    m.log()
 
-    m = LogMessage()
     m.add('  Train data')
     train_predictions, train_lss, train_acc = sess.run(
         [model.predictions, model.loss, model.accuracy],

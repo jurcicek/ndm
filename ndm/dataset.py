@@ -32,34 +32,50 @@ def gen_examples(text_data, input):
     """
     examples = []
     for conversation in text_data:
-        history = []
-        scores = []
+        asr_history = []
+        trs_history = []
         prev_turn = None
         for turn in conversation:
             if prev_turn:
-                history.append(prev_turn[0])
+                trs_history.append(prev_turn[0])
+                trs_history.append(prev_turn[1])
 
-                if input == 'trs':
-                    user_input = prev_turn[1]
-                    score = 1.0
-                elif input == 'asr':
-                    user_input = prev_turn[2]
-                    score = float(prev_turn[3])
-                else:
-                    raise Exception('Unsupported type of input')
-                history.append(user_input)
-                scores.append(score)  # the score of the last ASR user input
+                asr_history.append(prev_turn[0])
+                asr_history.append(prev_turn[2])
 
                 state = prev_turn[4]  # the dialogue state
                 action = turn[0]  # the system action / response
-                examples.append(deepcopy([history, state, action]))
+
+                if input == 'trs':
+                    examples.append(deepcopy([trs_history, state, action]))
+                elif input == 'asr':
+                    examples.append(deepcopy([asr_history, state, action]))
+                elif input == 'trs+asr':
+                    examples.append(deepcopy([trs_history, state, action]))
+                    examples.append(deepcopy([asr_history, state, action]))
+                else:
+                    raise Exception('Unsupported type of input: {s}'.format(s=input))
+
             prev_turn = turn
 
-        history.append(prev_turn[0])
-        history.append(prev_turn[1])
-        state = prev_turn[2]  # the dialogue state
+        trs_history.append(prev_turn[0])
+        trs_history.append(prev_turn[1])
+
+        asr_history.append(prev_turn[0])
+        asr_history.append(prev_turn[2])
+
+        state = prev_turn[4]  # the dialogue state
         action = 'hangup'  # the system action / response
-        examples.append(deepcopy([history, state, action]))
+
+        if input == 'trs':
+            examples.append(deepcopy([trs_history, state, action]))
+        elif input == 'asr':
+            examples.append(deepcopy([asr_history, state, action]))
+        elif input == 'trs+asr':
+            examples.append(deepcopy([trs_history, state, action]))
+            examples.append(deepcopy([asr_history, state, action]))
+        else:
+            raise Exception('Unsupported type of input: {s}'.format(s=input))
 
     return examples
 
