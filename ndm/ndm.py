@@ -184,7 +184,6 @@ def evaluate_w2t(epoch, learning_rate, merged, model, sess, targets, writer):
         train_predictions, train_lss, train_acc = sess.run(
             [model.predictions, model.loss, model.accuracy],
             feed_dict={
-                model.database: model.data.database,
                 model.histories: model.train_set['histories'][batch_start:batch_end],
                 model.histories_arguments: model.train_set['histories_arguments'][batch_start:batch_end],
                 model.targets: model.train_set[targets][batch_start:batch_end],
@@ -206,7 +205,6 @@ def evaluate_w2t(epoch, learning_rate, merged, model, sess, targets, writer):
         dev_predictions, dev_lss, dev_acc = sess.run(
             [model.predictions, model.loss, model.accuracy],
             feed_dict={
-                model.database: model.data.database,
                 model.histories: model.dev_set['histories'][batch_start:batch_end],
                 model.histories_arguments: model.dev_set['histories_arguments'][batch_start:batch_end],
                 model.targets: model.dev_set[targets][batch_start:batch_end],
@@ -228,7 +226,6 @@ def evaluate_w2t(epoch, learning_rate, merged, model, sess, targets, writer):
         test_predictions, test_lss, test_acc = sess.run(
             [model.predictions, model.loss, model.accuracy],
             feed_dict={
-                model.database: model.data.database,
                 model.histories: model.test_set['histories'][batch_start:batch_end],
                 model.histories_arguments: model.test_set['histories_arguments'][batch_start:batch_end],
                 model.targets: model.test_set[targets][batch_start:batch_end],
@@ -262,7 +259,6 @@ def evaluate_w2w(epoch, learning_rate, merged, model, sess, targets, use_inputs_
     train_predictions, train_lss, train_acc = sess.run(
         [model.predictions, model.loss, model.accuracy],
         feed_dict={
-            model.database: model.data.database,
             model.histories: model.train_set['histories'],
             model.histories_arguments: model.train_set['histories_arguments'],
             model.targets: model.train_set[targets],
@@ -277,7 +273,6 @@ def evaluate_w2w(epoch, learning_rate, merged, model, sess, targets, use_inputs_
     train_predictions, test_lss, test_acc = sess.run(
         [model.predictions, model.loss, model.accuracy],
         feed_dict={
-            model.database: model.data.database,
             model.histories: model.train_set['histories'],
             model.histories_arguments: model.train_set['histories_arguments'],
             model.targets: model.train_set[targets],
@@ -293,7 +288,6 @@ def evaluate_w2w(epoch, learning_rate, merged, model, sess, targets, use_inputs_
     summary, dev_predictions, dev_lss, dev_acc = sess.run(
         [merged, model.predictions, model.loss, model.accuracy],
         feed_dict={
-            model.database: model.data.database,
             model.histories: model.dev_set['histories'],
             model.histories_arguments: model.dev_set['histories_arguments'],
             model.targets: model.dev_set[targets],
@@ -313,7 +307,6 @@ def evaluate_w2w(epoch, learning_rate, merged, model, sess, targets, use_inputs_
     test_predictions, test_lss, test_acc = sess.run(
         [model.predictions, model.loss, model.accuracy],
         feed_dict={
-            model.database: model.data.database,
             model.histories: model.test_set['histories'],
             model.histories_arguments: model.test_set['histories_arguments'],
             model.targets: model.test_set[targets],
@@ -397,7 +390,6 @@ def train(model, targets, idx2word_target):
                 sess.run(
                     [train_op],
                     feed_dict={
-                        model.database: model.data.database,
                         model.histories: batch['histories'],
                         model.histories_arguments: batch['histories_arguments'],
                         model.targets: batch[targets],

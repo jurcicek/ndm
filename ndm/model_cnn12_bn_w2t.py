@@ -23,7 +23,10 @@ class Model:
 
         # inference model
         with tf.name_scope('model'):
-            database = tf.placeholder("int32", name='database')
+            batch_start = tf.placeholder("int32", name='batch_start')
+            batch_end = tf.placeholder("int32", name='batch_end')
+
+            database = tf.Variable(data.database, name='database')
             histories = tf.placeholder("int32", name='histories')
             histories_arguments = tf.placeholder("int32", name='histories_arguments')
             targets = tf.placeholder("int32", name='true_targets')
