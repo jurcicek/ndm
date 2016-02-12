@@ -40,35 +40,35 @@ class Model:
                 batch_size = tf.shape(histories)[0]
 
             database_embedding = multicolumn_embedding(
-                    columns=database,
-                    lengths=[len(i2w) for i2w in [data.database_idx2word[column] for column in data.database_columns]],
-                    sizes=[database_column_embedding_size for column in data.database_columns],
-                    # all columns have the same size
-                    name='database_embedding'
+                columns=database,
+                lengths=[len(i2w) for i2w in [data.database_idx2word[column] for column in data.database_columns]],
+                sizes=[database_column_embedding_size for column in data.database_columns],
+                # all columns have the same size
+                name='database_embedding'
             )
 
             histories_embedding = embedding(
-                    input=histories,
-                    length=histories_vocabulary_length,
-                    size=histories_embedding_size,
-                    name='histories_embedding'
+                input=histories,
+                length=histories_vocabulary_length,
+                size=histories_embedding_size,
+                name='histories_embedding'
             )
 
             histories_arguments_embedding = embedding(
-                    input=histories_arguments,
-                    length=histories_arguments_vocabulary_length,
-                    size=histories_arguments_embedding_size,
-                    name='histories_arguments_embedding'
+                input=histories_arguments,
+                length=histories_arguments_vocabulary_length,
+                size=histories_arguments_embedding_size,
+                name='histories_arguments_embedding'
             )
 
             with tf.name_scope("UtterancesEncoder"):
                 conv3 = histories_embedding
                 # conv3 = dropout(conv3, pow_1(dropout_keep_prob, 2))
                 conv3 = conv2d_bn(
-                        input=conv3,
-                        filter=[1, 3, conv3.size, conv3.size * conv_mul],
-                        phase_train=phase_train,
-                        name='conv_utt_size_3_layer_1'
+                    input=conv3,
+                    filter=[1, 3, conv3.size, conv3.size * conv_mul],
+                    phase_train=phase_train,
+                    name='conv_utt_size_3_layer_1'
                 )
 
                 encoded_utterances = reduce_max(conv3, [2], keep_dims=True, name='encoded_utterances')
@@ -77,17 +77,17 @@ class Model:
                 conv3 = encoded_utterances
                 conv3 = dropout(conv3, pow_1(dropout_keep_prob, 2))
                 conv3 = conv2d_bn(
-                        input=conv3,
-                        filter=[3, 1, conv3.size, conv3.size * conv_mul],
-                        phase_train=phase_train,
-                        name='conv_hist_size_3_layer_1'
+                    input=conv3,
+                    filter=[3, 1, conv3.size, conv3.size * conv_mul],
+                    phase_train=phase_train,
+                    name='conv_hist_size_3_layer_1'
                 )
                 conv3 = dropout(conv3, pow_1(dropout_keep_prob, 2))
                 conv3 = conv2d_bn(
-                        input=conv3,
-                        filter=[3, 1, conv3.size, conv3.size * conv_mul],
-                        phase_train=phase_train,
-                        name='conv_hist_size_3_layer_2'
+                    input=conv3,
+                    filter=[3, 1, conv3.size, conv3.size * conv_mul],
+                    phase_train=phase_train,
+                    name='conv_hist_size_3_layer_2'
                 )
 
                 encoded_history = reduce_max(conv3, [1, 2], name='encoded_history')
@@ -95,16 +95,16 @@ class Model:
 
             with tf.name_scope("DatabaseAttention"):
                 histories_arguments_embedding = tf.reshape(
-                        histories_arguments_embedding,
-                        [-1, n_histories_arguments * histories_arguments_embedding_size],
-                        name='histories_arguments_embedding'
+                    histories_arguments_embedding,
+                    [-1, n_histories_arguments * histories_arguments_embedding_size],
+                    name='histories_arguments_embedding'
                 )
                 # print(histories_arguments_embedding)
 
                 history_predicate = tf.concat(
-                        1,
-                        [encoded_history, histories_arguments_embedding],
-                        name='history_predicate'
+                    1,
+                    [encoded_history, histories_arguments_embedding],
+                    name='history_predicate'
                 )
                 print(history_predicate)
 
@@ -112,12 +112,12 @@ class Model:
                 att_W_ny = n_database_columns * database_column_embedding_size
 
                 att_W = tf.get_variable(
-                        name='attention_W',
-                        shape=[att_W_nx, att_W_ny],
-                        initializer=tf.random_uniform_initializer(
-                                -glorot_mul(att_W_nx, att_W_ny),
-                                glorot_mul(att_W_nx, att_W_ny)
-                        ),
+                    name='attention_W',
+                    shape=[att_W_nx, att_W_ny],
+                    initializer=tf.random_uniform_initializer(
+                        -glorot_mul(att_W_nx, att_W_ny),
+                        glorot_mul(att_W_nx, att_W_ny)
+                    ),
                 )
                 hp_x_att_W = tf.matmul(history_predicate, att_W)
                 attention_scores = tf.matmul(hp_x_att_W, database_embedding, transpose_b=True)
@@ -143,50 +143,53 @@ class Model:
                 last_user_utterance = encoded_utterances[:, history_length - 1, 0, :]
 
                 dialogue_state = tf.concat(
-                        1,
-                        [
-                            encoded_history,
-                            last_user_utterance,
-                            last_system_utterance,
-                            second_to_last_user_utterance,
-                            attention_feat,
-                            db_result
-                        ],
-                        name='dialogue_state'
+                    1,
+                    [
+                        encoded_history,
+                        last_user_utterance,
+                        last_system_utterance,
+                        second_to_last_user_utterance,
+                        attention_feat,
+                        db_result
+                    ],
+                    name='dialogue_state'
                 )
-                dialogue_state_size = conv3.size + \
-                                      3 * histories_embedding_size * conv_mul + \
-                                      attention_feat_size + \
-                                      db_result_size
+                dialogue_state_size = (
+                    conv3.size +
+                    3 * histories_embedding_size * conv_mul +
+                    attention_feat_size +
+                    db_result_size +
+                    0
+                )
 
                 activation = tf.nn.relu(dialogue_state)
                 activation = dropout(activation, dropout_keep_prob)
 
                 projection = linear(
-                        input=activation,
-                        input_size=dialogue_state_size,
-                        output_size=dialogue_state_size,
-                        name='linear_projection_1'
+                    input=activation,
+                    input_size=dialogue_state_size,
+                    output_size=dialogue_state_size,
+                    name='linear_projection_1'
                 )
                 projection = batch_norm_lin(projection, dialogue_state_size, phase_train, name='linear_projection_1_bn')
                 activation = tf.nn.relu(projection)
                 activation = dropout(activation, dropout_keep_prob)
 
                 projection = linear(
-                        input=activation,
-                        input_size=dialogue_state_size,
-                        output_size=dialogue_state_size,
-                        name='linear_projection_2'
+                    input=activation,
+                    input_size=dialogue_state_size,
+                    output_size=dialogue_state_size,
+                    name='linear_projection_2'
                 )
                 projection = batch_norm_lin(projection, dialogue_state_size, phase_train, name='linear_projection_2_bn')
                 activation = tf.nn.relu(projection)
                 activation = dropout(activation, dropout_keep_prob)
 
                 projection = linear(
-                        input=activation,
-                        input_size=dialogue_state_size,
-                        output_size=decoder_vocabulary_length,
-                        name='linear_projection_3'
+                    input=activation,
+                    input_size=dialogue_state_size,
+                    output_size=decoder_vocabulary_length,
+                    name='linear_projection_3'
                 )
                 predictions = tf.nn.softmax(projection, name="predictions")
                 # print(predictions)
