@@ -7,7 +7,6 @@ import multiprocessing
 from statistics import mean, stdev
 from time import sleep
 
-
 sys.path.extend(['..'])
 
 import numpy as np
@@ -31,7 +30,8 @@ import model_cnn23_mp_bn_w2t as cnn23_mp_bn_w2t
 import model_rnn1_w2t as rnn1_w2t
 import model_rnn2_w2t as rnn2_w2t
 
-from tfx.bricks import device_for_node_cpu
+from tfx.bricks import device_for_node_cpu, device_for_node_gpu, device_for_node_gpu_matmul, \
+    device_for_node_gpu_selection
 from tfx.optimizers import AdamPlusOptimizer, AdamPlusCovOptimizer
 from tfx.logging import start_experiment, LogMessage, LogExperiment
 from tfx.various import make_hash
@@ -42,6 +42,7 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_integer('runs', 1, 'Number of parallel runs of the trainer.')
 flags.DEFINE_integer('threads', 2, 'Number of parallel threads for each run.')
+flags.DEFINE_boolean('gpu', False, 'Run the computation on a GPU.')
 flags.DEFINE_string('model', 'cnn-w2w', '"cnn-w2w" (convolutional network for state tracking - words 2 words ) | '
                                         '"rnn-w2w" (bidirectional recurrent network for state tracking - words 2 words) | '
                                         '"cnn02-w2t" (convolutional network for state tracking - words 2 template | '
@@ -61,7 +62,7 @@ flags.DEFINE_string('model', 'cnn-w2w', '"cnn-w2w" (convolutional network for st
 flags.DEFINE_string('task', 'tracker', '"tracker" (dialogue state tracker) | '
                                        '"w2w" (word to word dialogue management) | '
                                        '"w2t" (word to template dialogue management)')
-flags.DEFINE_string('input', 'trs+asr', '"asr" automatically recognised user input | '
+flags.DEFINE_string('input', 'asr',     '"asr" automatically recognised user input | '
                                         '"trs" manually transcribed user input | '
                                         '"trs+asr" manually transcribed and automatically recognised user input')
 flags.DEFINE_string('train_data', './data.dstc2.train.json', 'The train data.')
@@ -153,6 +154,24 @@ def log_predictions_w2w(log_fn, model, data_set, predictions_argmax, targets, id
     m.log(print_console=False)
 
 
+def batch_evaluate(func, size):
+    tps, tls, tas = [], [], []
+    for batch in range(int(size / FLAGS.batch_size)):
+        batch_start = batch * FLAGS.batch_size
+        batch_end = (batch + 1) * FLAGS.batch_size
+
+        train_predictions, train_lss, train_acc = func(batch_start, batch_end)
+
+        tps.append(train_predictions)
+        tls.append(float(train_lss))
+        tas.append(float(train_acc))
+    train_predictions = np.concatenate(tps)
+    train_lss = mean(tls)
+    train_acc = mean(tas)
+
+    return train_predictions, train_lss, train_acc
+
+
 def evaluate_w2t(epoch, learning_rate, merged, model, sess, targets, writer):
     m = LogMessage()
     m.add('')
@@ -160,51 +179,65 @@ def evaluate_w2t(epoch, learning_rate, merged, model, sess, targets, writer):
     m.add('  - learning rate   = {lr:e}'.format(lr=learning_rate.eval()))
 
     m.add('  Train data')
-    train_predictions, train_lss, train_acc = sess.run(
-        [model.predictions, model.loss, model.accuracy],
-        feed_dict={
-            model.database: model.data.database,
-            model.histories: model.train_set['histories'],
-            model.histories_arguments: model.train_set['histories_arguments'],
-            model.targets: model.train_set[targets],
-            model.use_inputs_prob: 1.0,
-            model.dropout_keep_prob: 1.0,
-            model.phase_train: False,
-        }
-    )
+
+    def trn_eval(batch_start, batch_end):
+        train_predictions, train_lss, train_acc = sess.run(
+            [model.predictions, model.loss, model.accuracy],
+            feed_dict={
+                model.histories: model.train_set['histories'][batch_start:batch_end],
+                model.histories_arguments: model.train_set['histories_arguments'][batch_start:batch_end],
+                model.targets: model.train_set[targets][batch_start:batch_end],
+                model.use_inputs_prob: 1.0,
+                model.dropout_keep_prob: 1.0,
+                model.phase_train: False,
+            }
+        )
+        return train_predictions, train_lss, train_acc
+
+    train_predictions, train_lss, train_acc = batch_evaluate(trn_eval, len(model.train_set['histories']))
+
     m.add('    - accuracy      = {acc:f}'.format(acc=train_acc))
     m.add('    - loss          = {lss:f}'.format(lss=train_lss))
 
     m.add('  Dev data')
-    dev_predictions, dev_lss, dev_acc = sess.run(
-        [model.predictions, model.loss, model.accuracy],
-        feed_dict={
-            model.database: model.data.database,
-            model.histories: model.dev_set['histories'],
-            model.histories_arguments: model.dev_set['histories_arguments'],
-            model.targets: model.dev_set[targets],
-            model.use_inputs_prob: 1.0,
-            model.dropout_keep_prob: 1.0,
-            model.phase_train: False,
-        }
-    )
+
+    def dev_eval(batch_start, batch_end):
+        dev_predictions, dev_lss, dev_acc = sess.run(
+            [model.predictions, model.loss, model.accuracy],
+            feed_dict={
+                model.histories: model.dev_set['histories'][batch_start:batch_end],
+                model.histories_arguments: model.dev_set['histories_arguments'][batch_start:batch_end],
+                model.targets: model.dev_set[targets][batch_start:batch_end],
+                model.use_inputs_prob: 1.0,
+                model.dropout_keep_prob: 1.0,
+                model.phase_train: False,
+            }
+        )
+        return dev_predictions, dev_lss, dev_acc
+
+    dev_predictions, dev_lss, dev_acc = batch_evaluate(dev_eval, len(model.dev_set['histories']))
+
     m.add('    - accuracy      = {acc:f}'.format(acc=dev_acc))
     m.add('    - loss          = {lss:f}'.format(lss=dev_lss))
 
     m.add('  Test data')
-    summary, test_predictions, test_lss, test_acc = sess.run(
-        [merged, model.predictions, model.loss, model.accuracy],
-        feed_dict={
-            model.database: model.data.database,
-            model.histories: model.test_set['histories'],
-            model.histories_arguments: model.test_set['histories_arguments'],
-            model.targets: model.test_set[targets],
-            model.use_inputs_prob: 0.0,
-            model.dropout_keep_prob: 1.0,
-            model.phase_train: False,
-        }
-    )
-    writer.add_summary(summary, epoch)
+
+    def tst_eval(batch_start, batch_end):
+        test_predictions, test_lss, test_acc = sess.run(
+            [model.predictions, model.loss, model.accuracy],
+            feed_dict={
+                model.histories: model.test_set['histories'][batch_start:batch_end],
+                model.histories_arguments: model.test_set['histories_arguments'][batch_start:batch_end],
+                model.targets: model.test_set[targets][batch_start:batch_end],
+                model.use_inputs_prob: 0.0,
+                model.dropout_keep_prob: 1.0,
+                model.phase_train: False,
+            }
+        )
+        return test_predictions, test_lss, test_acc
+
+    test_predictions, test_lss, test_acc = batch_evaluate(tst_eval, len(model.test_set['histories']))
+
     m.add('    - accuracy      = {acc:f}'.format(acc=test_acc))
     m.add('    - loss          = {lss:f}'.format(lss=test_lss))
     m.add()
@@ -226,7 +259,6 @@ def evaluate_w2w(epoch, learning_rate, merged, model, sess, targets, use_inputs_
     train_predictions, train_lss, train_acc = sess.run(
         [model.predictions, model.loss, model.accuracy],
         feed_dict={
-            model.database: model.data.database,
             model.histories: model.train_set['histories'],
             model.histories_arguments: model.train_set['histories_arguments'],
             model.targets: model.train_set[targets],
@@ -241,7 +273,6 @@ def evaluate_w2w(epoch, learning_rate, merged, model, sess, targets, use_inputs_
     train_predictions, test_lss, test_acc = sess.run(
         [model.predictions, model.loss, model.accuracy],
         feed_dict={
-            model.database: model.data.database,
             model.histories: model.train_set['histories'],
             model.histories_arguments: model.train_set['histories_arguments'],
             model.targets: model.train_set[targets],
@@ -257,7 +288,6 @@ def evaluate_w2w(epoch, learning_rate, merged, model, sess, targets, use_inputs_
     summary, dev_predictions, dev_lss, dev_acc = sess.run(
         [merged, model.predictions, model.loss, model.accuracy],
         feed_dict={
-            model.database: model.data.database,
             model.histories: model.dev_set['histories'],
             model.histories_arguments: model.dev_set['histories_arguments'],
             model.targets: model.dev_set[targets],
@@ -277,7 +307,6 @@ def evaluate_w2w(epoch, learning_rate, merged, model, sess, targets, use_inputs_
     test_predictions, test_lss, test_acc = sess.run(
         [model.predictions, model.loss, model.accuracy],
         feed_dict={
-            model.database: model.data.database,
             model.histories: model.test_set['histories'],
             model.histories_arguments: model.test_set['histories_arguments'],
             model.targets: model.test_set[targets],
@@ -300,8 +329,8 @@ def evaluate_w2w(epoch, learning_rate, merged, model, sess, targets, use_inputs_
 
 
 def train(model, targets, idx2word_target):
-    # with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-    with tf.Session(config=tf.ConfigProto(inter_op_parallelism_threads=FLAGS.threads,
+    with tf.Session(config=tf.ConfigProto(allow_soft_placement=True,
+                                          inter_op_parallelism_threads=FLAGS.threads,
                                           intra_op_parallelism_threads=FLAGS.threads,
                                           use_per_session_threads=True)) as sess:
         # Merge all the summaries and write them out to ./log
@@ -361,7 +390,6 @@ def train(model, targets, idx2word_target):
                 sess.run(
                     [train_op],
                     feed_dict={
-                        model.database: model.data.database,
                         model.histories: batch['histories'],
                         model.histories_arguments: batch['histories_arguments'],
                         model.targets: batch[targets],
@@ -395,10 +423,10 @@ def train(model, targets, idx2word_target):
 
                 # save predictions on train, dev, and test sets
                 if FLAGS.task == 'w2t':
-                    predictions_argmax = np.argmax(train_predictions, 1)
-                    log_predictions_w2t('predictions_train_set.txt', model, model.train_set, predictions_argmax,
-                                        targets,
-                                        idx2word_target)
+                    # predictions_argmax = np.argmax(train_predictions, 1)
+                    # log_predictions_w2t('predictions_train_set.txt', model, model.train_set, predictions_argmax,
+                    #                     targets,
+                    #                     idx2word_target)
                     predictions_argmax = np.argmax(dev_predictions, 1)
                     log_predictions_w2t('predictions_dev_set.txt', model, model.dev_set, predictions_argmax,
                                         targets,
@@ -472,12 +500,13 @@ def main(run):
     graph = tf.Graph()
 
     with graph.as_default():
-        with graph.device(device_for_node_cpu):
+        with graph.device(device_for_node_gpu if FLAGS.gpu else device_for_node_cpu):
             m = LogMessage(time=True)
             m.add('-' * 120)
             m.add('End to End Neural Dialogue Manager')
             m.add('    runs                  = {runs}'.format(runs=FLAGS.runs))
             m.add('    threads               = {threads}'.format(threads=FLAGS.threads))
+            m.add('    gpu                   = {gpu}'.format(gpu=FLAGS.gpu))
             m.add('    model                 = {model}'.format(model=FLAGS.model))
             m.add('    task                  = {t}'.format(t=FLAGS.task))
             m.add('    input                 = {i}'.format(i=FLAGS.input))

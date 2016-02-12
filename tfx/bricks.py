@@ -19,6 +19,7 @@ def dropout(x, keep_prob, noise_shape=None, seed=None, name=None):
 
     return d
 
+
 def pow_1(x, y):
     """Rises power of x as a complement of 1.
 
@@ -26,7 +27,8 @@ def pow_1(x, y):
     :param y:
     :return:
     """
-    return 1 - tf.pow(1-x, y)
+    return 1 - tf.pow(1 - x, y)
+
 
 def reduce_max(input, reduction_indices=None, keep_dims=False, name=None):
     r = tf.reduce_max(input, reduction_indices, keep_dims, name)
@@ -46,15 +48,15 @@ def linear(input, input_size, output_size, name='linear'):
     """
     with tf.variable_scope(name):
         W = tf.get_variable(
-                name='W',
-                shape=[input_size, output_size],
-                initializer=tf.random_uniform_initializer(-glorot_plus(input_size, output_size),
-                                                          glorot_plus(input_size, output_size)),
+            name='W',
+            shape=[input_size, output_size],
+            initializer=tf.random_uniform_initializer(-glorot_plus(input_size, output_size),
+                                                      glorot_plus(input_size, output_size)),
         )
         b = tf.get_variable(
-                name='B',
-                shape=[output_size],
-                initializer=tf.truncated_normal_initializer(stddev=1e-9 / glorot_mul(input_size, output_size)),
+            name='B',
+            shape=[output_size],
+            initializer=tf.truncated_normal_initializer(stddev=1e-9 / glorot_mul(input_size, output_size)),
         )
 
         y = tf.matmul(input, W) + b
@@ -78,9 +80,9 @@ def embedding(input, length, size, name='embedding'):
     """
     with tf.variable_scope(name):
         embedding_table = tf.get_variable(
-                name='embedding_table',
-                shape=[length, size],
-                initializer=tf.random_uniform_initializer(-glorot_plus(length, size), glorot_plus(length, size)),
+            name='embedding_table',
+            shape=[length, size],
+            initializer=tf.random_uniform_initializer(-glorot_plus(length, size), glorot_plus(length, size)),
         )
 
         y = tf.gather(embedding_table, input)
@@ -112,10 +114,10 @@ def multicolumn_embedding(columns, lengths, sizes, name='database_embedding'):
         columns_embeddings = []
         for i, column, length, size in zip(range(n_columns), columns, lengths, sizes):
             ce = embedding(
-                    input=column,
-                    length=length,
-                    size=size,
-                    name='database_embedding_column_{i}'.format(i=i)
+                input=column,
+                length=length,
+                size=size,
+                name='database_embedding_column_{i}'.format(i=i)
             )
 
             columns_embeddings.append(ce)
@@ -132,10 +134,10 @@ def multicolumn_embedding(columns, lengths, sizes, name='database_embedding'):
 def conv2d(input, filter, strides=[1, 1, 1, 1], name='conv2d'):
     with tf.variable_scope(name):
         W = tf.get_variable(
-                name='W',
-                shape=filter,
-                # initializer=tf.truncated_normal_initializer(stddev=0.1)
-                initializer=tf.truncated_normal_initializer() # this initialisation is much better!
+            name='W',
+            shape=filter,
+            # initializer=tf.truncated_normal_initializer(stddev=0.1)
+            initializer=tf.truncated_normal_initializer()  # this initialisation is much better!
         )
 
         y = tf.nn.relu(tf.nn.conv2d(input, W, strides=strides, padding='SAME'))
@@ -152,10 +154,10 @@ def conv2d(input, filter, strides=[1, 1, 1, 1], name='conv2d'):
 def conv2d_bn(input, filter, phase_train, strides=[1, 1, 1, 1], name='conv2d_bn'):
     with tf.variable_scope(name):
         W = tf.get_variable(
-                name='W',
-                shape=filter,
-                # initializer=tf.truncated_normal_initializer(stddev=0.1)
-                initializer=tf.truncated_normal_initializer()
+            name='W',
+            shape=filter,
+            # initializer=tf.truncated_normal_initializer(stddev=0.1)
+            initializer=tf.truncated_normal_initializer()
         )
 
         conv = tf.nn.conv2d(input, W, strides=strides, padding='SAME')
@@ -194,15 +196,15 @@ def batch_norm_conv(x, n_out, phase_train, name='bn', affine=True, decay=0.99, e
     """
     with tf.variable_scope(name):
         beta = tf.get_variable(
-                name='beta',
-                shape=[n_out],
-                initializer=tf.constant_initializer(0.0)
+            name='beta',
+            shape=[n_out],
+            initializer=tf.constant_initializer(0.0)
         )
         gamma = tf.get_variable(
-                name='gamma',
-                shape=[n_out],
-                initializer=tf.constant_initializer(1.0),
-                trainable=affine
+            name='gamma',
+            shape=[n_out],
+            initializer=tf.constant_initializer(1.0),
+            trainable=affine
         )
 
         batch_mean, batch_var = tf.nn.moments(x, [0, 1, 2], name='moments')
@@ -312,9 +314,9 @@ def rnn_decoder(cell, inputs, initial_state, embedding_size, embedding_length, s
         with tf.name_scope("embedding"):
             batch_size = tf.shape(initial_state)[0]
             embedding_table = tf.get_variable(
-                    name='embedding_table',
-                    shape=[embedding_length, embedding_size],
-                    initializer=tf.truncated_normal_initializer(stddev=glorot_mul(embedding_length, embedding_size)),
+                name='embedding_table',
+                shape=[embedding_length, embedding_size],
+                initializer=tf.truncated_normal_initializer(stddev=glorot_mul(embedding_length, embedding_size)),
             )
             # 0 is index for _SOS_ (start of sentence symbol)
             initial_embedding = tf.gather(embedding_table, tf.zeros(tf.pack([batch_size]), tf.int32))
@@ -343,10 +345,10 @@ def rnn_decoder(cell, inputs, initial_state, embedding_size, embedding_length, s
                 output, state = cell(input, states[-1])
 
                 projection = linear(
-                        input=output,
-                        input_size=cell.output_size,
-                        output_size=embedding_length,
-                        name='output_linear_projection'
+                    input=output,
+                    input_size=cell.output_size,
+                    output_size=embedding_length,
+                    name='output_linear_projection'
                 )
 
                 outputs.append(projection)
@@ -375,20 +377,17 @@ def dense_to_one_hot(labels, n_classes):
         dim = tf.concat(0, [tf.shape(labels), tf.reshape(n_classes, [-1])])
 
         one_hot_labels = tf.sparse_to_dense(
-                concated,
-                dim,
-                1.0,
-                0.0
+            concated,
+            dim,
+            1.0,
+            0.0
         )
 
         return one_hot_labels
 
 
 def device_for_node_cpu(n):
-    if n.type == "MatMul":
-        return "/cpu:0"
-    else:
-        return "/cpu:0"
+    return "/cpu:0"
 
 
 def device_for_node_gpu_matmul(n):
@@ -397,12 +396,35 @@ def device_for_node_gpu_matmul(n):
     else:
         return "/cpu:0"
 
-# GPU matmul
-# real    5m35.455s
-# user    10m27.452s
-# sys     2m50.512s
 
-# GPU none
-# real    4m46.137s
-# user    8m37.684s
-# sys     3m42.420s
+tps = set()
+
+
+def device_for_node_gpu_selection(n):
+    global tps
+
+    if n.type in [
+        "MatMul", 'Mul', 'Sub', 'Add', 'Sqrt', 'Pow', 'Div', 'Relu', 'Log', 'Max', 'Mean', 'Min', 'Softmax',
+        'Gather', 'ReluGrad',
+        'ScatterAdd', 'Sum', 'ZerosLike',
+        'Prod', 'RandomUniform', 'Square',
+        'AddN', 'ArgMax', 'Assign', 'AssignAdd', 'AssignSub', 'BatchNormWithGlobalNormalization',
+        'BatchNormWithGlobalNormalizationGrad', 'BroadcastGradientArgs', 'Cast', 'Concat', 'ConcatOffset',
+        'Const',
+        'Conv2D', 'Conv2DBackpropFilter', 'Conv2DBackpropInput', 'DynamicStitch', 'Equal', 'Fill', 'Floor',
+        'GreaterEqual', 'Identity', 'Inv', 'LessEqual', 'LogicalNot', 'Maximum', 'Merge', 'MergeSummary',
+        'Minimum', 'Neg',
+        # 'NoOp', 'Pack', 'Pad', 'Placeholder', 'Range', 'Rank',
+        # 'Reshape',
+        # 'RestoreSlice', 'SaveSlices', 'ScalarSummary', 'Select', 'Shape', 'ShapeN', 'Slice',
+        # 'SparseToDense', 'Squeeze', 'Switch', 'Tile', 'TruncatedNormal', 'Variable', 'Where',
+    ]:
+        return "/gpu:0"
+    else:
+        tps.add(n.type)
+        print(sorted(tps))
+        return "/cpu:0"
+
+
+def device_for_node_gpu(n):
+    return "/gpu:0"
