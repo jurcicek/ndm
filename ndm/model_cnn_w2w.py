@@ -9,6 +9,8 @@ from tfx.bricks import embedding, rnn_decoder, dense_to_one_hot, linear, conv2d,
 
 class Model:
     def __init__(self, data, targets, decoder_vocabulary_length, FLAGS):
+        dropout_keep_prob = tf.placeholder("float32", name='dropout_keep_prob')
+
         with tf.variable_scope("phase_train"):
             phase_train = tf.placeholder(tf.bool, name='phase_train')
 
@@ -24,16 +26,23 @@ class Model:
         decoder_embedding_size = 16 * 2
         # decoder_vocabulary_length = len(data.idx2word_target)
         with tf.variable_scope("decoder_sequence_length"):
-            decoder_sequence_length = data.train_set[targets].shape[1]
+            decoder_sequence_length = targets.shape[2]
+
+        with tf.name_scope('data'):
+            batch_idx = tf.placeholder("int32", name='batch_idx')
+
+            database = tf.Variable(data.database, name='database', trainable=False)
+
+            batch_histories = tf.Variable(data.batch_histories, name='histories', trainable=False)
+            batch_histories_arguments = tf.Variable(data.batch_histories_arguments, name='histories_arguments', trainable=False)
+            batch_targets = tf.Variable(targets, name='targets', trainable=False)
+
+            histories = tf.gather(batch_histories, batch_idx)
+            histories_arguments = tf.gather(batch_histories_arguments, batch_idx)
+            targets = tf.gather(batch_targets, batch_idx)
 
         # inference model
         with tf.name_scope('model'):
-            database = tf.placeholder("int32", name='database')
-            histories = tf.placeholder("int32", name='histories')
-            histories_arguments = tf.placeholder("int32", name='histories_arguments')
-            targets = tf.placeholder("int32", name='targets')
-            dropout_keep_prob = tf.placeholder("float32", name='dropout_keep_prob')
-
             with tf.variable_scope("batch_size"):
                 batch_size = tf.shape(histories)[0]
 
@@ -154,9 +163,7 @@ class Model:
 
         self.database = database
 
-        self.train_set = data.train_set
-        self.dev_set = data.dev_set
-        self.test_set = data.test_set
+        self.batch_idx = batch_idx
 
         self.history_length = history_length
         self.encoder_sequence_length = encoder_sequence_length

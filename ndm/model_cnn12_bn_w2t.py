@@ -23,7 +23,6 @@ class Model:
         with tf.variable_scope("encoder_sequence_length"):
             histories_utterance_length = data.train_set['histories'].shape[2]
 
-        # inference model
         with tf.name_scope('data'):
             batch_idx = tf.placeholder("int32", name='batch_idx')
 
@@ -37,6 +36,7 @@ class Model:
             histories_arguments = tf.gather(batch_histories_arguments, batch_idx)
             targets = tf.gather(batch_targets, batch_idx)
 
+        # inference model
         with tf.name_scope('model'):
             with tf.variable_scope("batch_size"):
                 batch_size = tf.shape(histories)[0]
