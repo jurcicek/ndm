@@ -360,7 +360,60 @@ class DSTC2:
         self.test_set_size = len(self.test_set['histories'])
 
         self.batch_size = batch_size
-        self.train_batch_indexes = [[i, i + batch_size] for i in range(0, self.train_set_size, batch_size)]
+
+        self.train_batch_indexes = []
+        batch_histories = []
+        batch_histories_arguments = []
+        batch_states = []
+        batch_actions = []
+        batch_actions_arguments = []
+        batch_actions_template = []
+        for i in range(0, self.train_set_size // batch_size):
+            start = i * batch_size
+            end = (i + 1) * batch_size
+            self.train_batch_indexes.append(i)
+
+            batch_histories.append(np.expand_dims(train_histories[start:end], axis=0))
+            batch_histories_arguments.append(np.expand_dims(train_histories_arguments[start:end], axis=0))
+            batch_states.append(np.expand_dims(train_states[start:end], axis=0))
+            batch_actions.append(np.expand_dims(train_actions[start:end], axis=0))
+            batch_actions_arguments.append(np.expand_dims(train_actions_arguments[start:end], axis=0))
+            batch_actions_template.append(np.expand_dims(train_actions_template[start:end], axis=0))
+
+        offset = len(batch_histories)
+        self.dev_batch_indexes = []
+        for i in range(0, self.dev_set_size // batch_size):
+            start = i * batch_size
+            end = (i + 1) * batch_size
+            self.dev_batch_indexes.append(offset + i)
+
+            batch_histories.append(np.expand_dims(dev_histories[start:end], axis=0))
+            batch_histories_arguments.append(np.expand_dims(dev_histories_arguments[start:end], axis=0))
+            batch_states.append(np.expand_dims(dev_states[start:end], axis=0))
+            batch_actions.append(np.expand_dims(dev_actions[start:end], axis=0))
+            batch_actions_arguments.append(np.expand_dims(dev_actions_arguments[start:end], axis=0))
+            batch_actions_template.append(np.expand_dims(dev_actions_template[start:end], axis=0))
+
+        offset = len(batch_histories)
+        self.test_batch_indexes = []
+        for i in range(0, self.test_set_size // batch_size):
+            start = i * batch_size
+            end = (i + 1) * batch_size
+            self.test_batch_indexes.append(offset + i)
+
+            batch_histories.append(np.expand_dims(test_histories[start:end], axis=0))
+            batch_histories_arguments.append(np.expand_dims(test_histories_arguments[start:end], axis=0))
+            batch_states.append(np.expand_dims(test_states[start:end], axis=0))
+            batch_actions.append(np.expand_dims(test_actions[start:end], axis=0))
+            batch_actions_arguments.append(np.expand_dims(test_actions_arguments[start:end], axis=0))
+            batch_actions_template.append(np.expand_dims(test_actions_template[start:end], axis=0))
+
+        self.batch_histories = np.concatenate(batch_histories)
+        self.batch_histories_arguments = np.concatenate(batch_histories_arguments)
+        self.batch_states = np.concatenate(batch_states)
+        self.batch_actions = np.concatenate(batch_actions)
+        self.batch_actions_arguments = np.concatenate(batch_actions_arguments)
+        self.batch_actions_template = np.concatenate(batch_actions_template)
 
         # print(idx2word_history)
         # print(word2idx_history)
@@ -520,17 +573,17 @@ class DSTC2:
 
         return histories, histories_arguments, states, actions, actions_arguments, actions_template
 
-    def iter_train_batches(self):
-        for batch in self.train_batch_indexes:
-            yield {
-                'histories': self.train_set['histories'][batch[0]:batch[1]],
-                'histories_arguments': self.train_set['histories_arguments'][batch[0]:batch[1]],
-                'states': self.train_set['states'][batch[0]:batch[1]],
-                'actions': self.train_set['actions'][batch[0]:batch[1]],
-                'actions_arguments': self.train_set['actions_arguments'][batch[0]:batch[1]],
-                'actions_template': self.train_set['actions_template'][batch[0]:batch[1]],
-            }
-        shuffle(self.train_batch_indexes)
+    # def iter_train_batches(self):
+    #     for batch in self.train_batch_indexes:
+    #         yield {
+    #             'histories': self.train_set['histories'][batch[0]:batch[1]],
+    #             'histories_arguments': self.train_set['histories_arguments'][batch[0]:batch[1]],
+    #             'states': self.train_set['states'][batch[0]:batch[1]],
+    #             'actions': self.train_set['actions'][batch[0]:batch[1]],
+    #             'actions_arguments': self.train_set['actions_arguments'][batch[0]:batch[1]],
+    #             'actions_template': self.train_set['actions_template'][batch[0]:batch[1]],
+    #         }
+    #     shuffle(self.train_batch_indexes)
 
     def print_examples(self, examples):
         for history, state, action in examples:

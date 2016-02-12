@@ -23,7 +23,7 @@ class Model:
             database = tf.placeholder("int32", name='database')
             histories = tf.placeholder("int32", name='histories')
             histories_arguments = tf.placeholder("int32", name='histories_arguments')
-            targets = tf.placeholder("int32", name='true_targets')
+            targets = tf.placeholder("int32", name='targets')
             dropout_keep_prob = tf.placeholder("float32", name='dropout_keep_prob')
 
             with tf.variable_scope("batch_size"):

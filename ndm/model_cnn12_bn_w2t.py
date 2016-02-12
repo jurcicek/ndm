@@ -8,7 +8,9 @@ from tfx.bricks import embedding, dense_to_one_hot, linear, conv2d, dropout, red
 
 
 class Model:
-    def __init__(self, data, decoder_vocabulary_length, FLAGS):
+    def __init__(self, data, targets, decoder_vocabulary_length, FLAGS):
+        dropout_keep_prob = tf.placeholder("float32", name='dropout_keep_prob')
+
         with tf.variable_scope("phase_train"):
             phase_train = tf.placeholder(tf.bool, name='phase_train')
 
@@ -22,16 +24,20 @@ class Model:
             histories_utterance_length = data.train_set['histories'].shape[2]
 
         # inference model
+        with tf.name_scope('data'):
+            batch_idx = tf.placeholder("int32", name='batch_idx')
+
+            database = tf.Variable(data.database, name='database', trainable=False)
+
+            batch_histories = tf.Variable(data.batch_histories, name='histories', trainable=False)
+            batch_histories_arguments = tf.Variable(data.batch_histories_arguments, name='histories_arguments', trainable=False)
+            batch_targets = tf.Variable(targets, name='targets', trainable=False)
+
+            histories = tf.gather(batch_histories, batch_idx)
+            histories_arguments = tf.gather(batch_histories_arguments, batch_idx)
+            targets = tf.gather(batch_targets, batch_idx)
+
         with tf.name_scope('model'):
-            batch_start = tf.placeholder("int32", name='batch_start')
-            batch_end = tf.placeholder("int32", name='batch_end')
-
-            database = tf.Variable(data.database, name='database')
-            histories = tf.placeholder("int32", name='histories')
-            histories_arguments = tf.placeholder("int32", name='histories_arguments')
-            targets = tf.placeholder("int32", name='true_targets')
-            dropout_keep_prob = tf.placeholder("float32", name='dropout_keep_prob')
-
             with tf.variable_scope("batch_size"):
                 batch_size = tf.shape(histories)[0]
 
@@ -140,15 +146,14 @@ class Model:
             accuracy = tf.reduce_mean(tf.cast(correct_prediction, 'float'))
             tf.scalar_summary('accuracy', accuracy)
 
+        self.dropout_keep_prob = dropout_keep_prob
         self.phase_train = phase_train
 
         self.data = data
 
         self.database = database
 
-        self.train_set = data.train_set
-        self.dev_set = data.dev_set
-        self.test_set = data.test_set
+        self.batch_idx = batch_idx
 
         self.history_length = history_length
         self.encoder_sequence_length = histories_utterance_length
@@ -157,7 +162,6 @@ class Model:
         self.attention = None  # attention
         self.db_result = None  # db_result
         self.targets = targets
-        self.dropout_keep_prob = dropout_keep_prob
         self.batch_size = batch_size
         self.use_inputs_prob = use_inputs_prob
         self.predictions = predictions
