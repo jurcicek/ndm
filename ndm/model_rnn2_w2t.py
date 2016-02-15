@@ -4,39 +4,31 @@ import sys
 import tensorflow as tf
 
 from tensorflow.python.ops.rnn_cell import LSTMCell
+
+from model import ModelW2T
 from tfx.bricks import embedding, rnn, dense_to_one_hot, brnn, linear
 
 
-class Model:
-    def __init__(self, data, targets, decoder_vocabulary_length, FLAGS):
-        dropout_keep_prob = tf.placeholder("float32", name='dropout_keep_prob')
-
-        with tf.variable_scope("phase_train"):
-            phase_train = tf.placeholder(tf.bool, name='phase_train')
-
-        with tf.variable_scope("history_length"):
-            history_length = data.train_set['histories'].shape[1]
+class Model(ModelW2T):
+    def __init__(self, data, FLAGS):
+        super(Model, self).__init__(data, FLAGS)
 
         encoder_embedding_size = 16
         encoder_lstm_size = 16
         encoder_vocabulary_length = len(data.idx2word_history)
-        with tf.variable_scope("encoder_sequence_length"):
-            encoder_sequence_length = data.train_set['histories'].shape[2]
+        encoder_sequence_length = data.train_set['histories'].shape[2]
+        history_length = data.train_set['histories'].shape[1]
+
+        action_templates_vocabulary_length = len(data.idx2word_action_template)
 
         with tf.name_scope('data'):
-            batch_idx = tf.placeholder("int32", name='batch_idx')
-
-            database = tf.Variable(data.database, name='database', trainable=False)
-
             batch_histories = tf.Variable(data.batch_histories, name='histories', trainable=False)
-            batch_histories_arguments = tf.Variable(data.batch_histories_arguments, name='histories_arguments', trainable=False)
-            batch_targets = tf.Variable(targets, name='targets', trainable=False)
+            batch_actions_template = tf.Variable(data.batch_actions_template, name='actions',
+                                                 trainable=False)
 
-            histories = tf.gather(batch_histories, batch_idx)
-            histories_arguments = tf.gather(batch_histories_arguments, batch_idx)
-            targets = tf.gather(batch_targets, batch_idx)
+            histories = tf.gather(batch_histories, self.batch_idx)
+            actions_template = tf.gather(batch_actions_template, self.batch_idx)
 
-        # inference model
         with tf.name_scope('model'):
             with tf.variable_scope("batch_size"):
                 batch_size = tf.shape(histories)[0]
@@ -157,12 +149,11 @@ class Model:
                 )
 
             with tf.name_scope("Decoder"):
-                use_inputs_prob = tf.placeholder("float32", name='use_inputs_prob')
                 linear_size = cell_fw_2.state_size
 
                 # decode all histories along the utterance axis
                 activation = tf.nn.relu(encoder_states[-1])
-                activation = tf.nn.dropout(activation, dropout_keep_prob)
+                activation = tf.nn.dropout(activation, self.dropout_keep_prob)
 
                 projection = linear(
                         input=activation,
@@ -171,7 +162,7 @@ class Model:
                         name='linear_projection_1'
                 )
                 activation = tf.nn.relu(projection)
-                activation = tf.nn.dropout(activation, dropout_keep_prob)
+                activation = tf.nn.dropout(activation, self.dropout_keep_prob)
 
                 projection = linear(
                         input=activation,
@@ -180,49 +171,27 @@ class Model:
                         name='linear_projection_2'
                 )
                 activation = tf.nn.relu(projection)
-                activation = tf.nn.dropout(activation, dropout_keep_prob)
+                activation = tf.nn.dropout(activation, self.dropout_keep_prob)
 
                 projection = linear(
                         input=activation,
                         input_size=linear_size,
-                        output_size=decoder_vocabulary_length,
+                        output_size=action_templates_vocabulary_length,
                         name='linear_projection_3'
                 )
-                predictions = tf.nn.softmax(projection, name="softmax_output")
-                # print(predictions)
+                self.predictions = tf.nn.softmax(projection, name="softmax_output")
+                # print(self.predictions)
 
         if FLAGS.print_variables:
             for v in tf.trainable_variables():
                 print(v.name)
 
         with tf.name_scope('loss'):
-            one_hot_labels = dense_to_one_hot(targets, decoder_vocabulary_length)
-            loss = tf.reduce_mean(- one_hot_labels * tf.log(tf.clip_by_value(predictions, 1e-10, 1.0)), name='loss')
-            tf.scalar_summary('loss', loss)
+            one_hot_labels = dense_to_one_hot(actions_template, action_templates_vocabulary_length)
+            self.loss = tf.reduce_mean(- one_hot_labels * tf.log(tf.clip_by_value(self.predictions, 1e-10, 1.0)), name='loss')
+            tf.scalar_summary('loss', self.loss)
 
         with tf.name_scope('accuracy'):
-            correct_prediction = tf.equal(tf.argmax(one_hot_labels, 1), tf.argmax(predictions, 1))
-            accuracy = tf.reduce_mean(tf.cast(correct_prediction, 'float'))
-            tf.scalar_summary('accuracy', accuracy)
-
-        self.phase_train = phase_train
-
-        self.data = data
-
-        self.database = database
-
-        self.batch_idx = batch_idx
-
-        self.history_length = history_length
-        self.encoder_sequence_length = encoder_sequence_length
-        self.histories = histories
-        self.histories_arguments = histories_arguments
-        self.attention = None #attention
-        self.db_result = None #db_result
-        self.targets = targets
-        self.dropout_keep_prob = dropout_keep_prob
-        self.batch_size = batch_size
-        self.use_inputs_prob = use_inputs_prob
-        self.predictions = predictions
-        self.loss = loss
-        self.accuracy = accuracy
+            correct_prediction = tf.equal(tf.argmax(one_hot_labels, 1), tf.argmax(self.predictions, 1))
+            self.accuracy = tf.reduce_mean(tf.cast(correct_prediction, 'float'))
+            tf.scalar_summary('accuracy', self.accuracy)

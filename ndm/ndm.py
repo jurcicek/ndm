@@ -17,6 +17,7 @@ import model_cnn_w2w as cnn_w2w
 import model_rnn_w2w as rnn_w2w
 import model_cnn12_w2t as cnn12_w2t
 import model_cnn12_bn_w2t as cnn12_bn_w2t
+import model_cnn12_bn_w2targs as cnn12_bn_w2targs
 import model_cnn12_mp_bn_w2t as cnn12_mp_bn_w2t
 import model_cnn12_att_a_w2t as cnn12_att_a_w2t
 import model_cnn12_bn_att_a_w2t as cnn12_bn_att_a_w2t
@@ -40,10 +41,11 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_integer('runs', 1, 'Number of parallel runs of the trainer.')
 flags.DEFINE_integer('threads', 2, 'Number of parallel threads for each run.')
-flags.DEFINE_boolean('gpu', False, 'Run the computation on a GPU.')
-flags.DEFINE_string('model', 'cnn12-bn-w2t',
+flags.DEFINE_string('model', "cnn12-bn-w2t",
+
                     '"cnn-w2w" (convolutional network for state tracking - words 2 words ) | '
                     '"rnn-w2w" (bidirectional recurrent network for state tracking - words 2 words) | '
+
                     '"cnn12-w2t" (convolutional network for state tracking - words 2 template | '
                     '"cnn12-bn-w2t" (convolutional network for state tracking - words 2 template | '
                     '"cnn12-mp-bn-w2t" (convolutional network for state tracking - words 2 template | '
@@ -55,11 +57,11 @@ flags.DEFINE_string('model', 'cnn12-bn-w2t',
                     '"cnn13-mp-bn-w2t" (convolutional network for state tracking - words 2 template | '
                     '"cnn23-mp-bn-w2t" (convolutional network for state tracking - words 2 template | '
                     '"rnn1-w2t" (forward only recurrent network for state tracking - words 2 template | '
-                    '"rnn2-w2t" (bidirectional recurrent network for state tracking - words 2 template)')
-flags.DEFINE_string('task', 'w2t',
-                    '"tracker" (dialogue state tracker) | '
-                    '"w2w" (word to word dialogue management) | '
-                    '"w2t" (word to template dialogue management)')
+                    '"rnn2-w2t" (bidirectional recurrent network for state tracking - words 2 template)'
+
+                    '"cnn12-bn-w2targs" (convolutional network for state tracking - words 2 template | '
+                    )
+flags.DEFINE_boolean('gpu', False, 'Run the computation on a GPU.')
 flags.DEFINE_string('input', 'asr',
                     '"asr" automatically recognised user input | '
                     '"trs" manually transcribed user input | '
@@ -94,251 +96,7 @@ There are several models available:
 """
 
 
-def log_predictions_w2t(log_fn, model, histories, batch_indexes, predictions_argmax, targets, idx2word_target):
-    m = LogMessage(log_fn=log_fn)
-    m.add('Shape of predictions: {s}'.format(s=predictions_argmax.shape))
-    m.add('Argmax predictions')
-    m.add()
-
-    for prediction_batch_idx, batch_idx in enumerate(batch_indexes):
-        # print(histories.shape)
-        # print(predictions_argmax.shape)
-        # print(prediction_batch_idx, batch_idx)
-        for history in range(0, histories.shape[1]):
-            m.add('History {h}'.format(h=prediction_batch_idx * FLAGS.batch_size + history))
-
-            for j in range(histories.shape[2]):
-                utterance = []
-                for k in range(histories.shape[3]):
-                    w = model.data.idx2word_history[histories[batch_idx, history, j, k]]
-                    if w not in ['_SOS_', '_EOS_']:
-                        utterance.append(w)
-                if utterance:
-                    m.add('U {j}: {c:80}'.format(j=j, c=' '.join(utterance)))
-
-            m.add('P  : {t:80}'.format(t=idx2word_target[predictions_argmax[prediction_batch_idx, history]]))
-            m.add('T  : {t:80}'.format(t=idx2word_target[targets[batch_idx, history]]))
-            m.add()
-            # m.log()
-    m.log(print_console=False)
-
-
-def log_predictions_w2w(log_fn, model, histories, batch_indexes, predictions_argmax, targets, idx2word_target):
-    m = LogMessage(log_fn=log_fn)
-    m.add('Shape of predictions: {s}'.format(s=predictions_argmax.shape))
-    m.add('Argmax predictions')
-    m.add()
-
-    for prediction_batch_idx, batch_idx in enumerate(batch_indexes):
-        for history in range(0, histories.shape[1]):
-            m.add('History {h}'.format(h=prediction_batch_idx * FLAGS.batch_size + history))
-
-            for j in range(histories.shape[2]):
-                utterance = []
-                for k in range(histories.shape[3]):
-                    w = model.data.idx2word_history[histories[batch_idx, history, j, k]]
-                    if w not in ['_SOS_', '_EOS_']:
-                        utterance.append(w)
-                if utterance:
-                    m.add('U {j}: {c:80}'.format(j=j, c=' '.join(utterance)))
-
-            prediction = []
-            for j in range(predictions_argmax.shape[2]):
-                w = idx2word_target[predictions_argmax[prediction_batch_idx, history, j]]
-                if w not in ['_SOS_', '_EOS_']:
-                    prediction.append(w)
-
-            m.add('P  : {t:80}'.format(t=' '.join(prediction)))
-
-            target = []
-            for j in range(targets.shape[2]):
-                w = idx2word_target[targets[batch_idx, history, j]]
-                if w not in ['_SOS_', '_EOS_']:
-                    target.append(w)
-
-            m.add('T  : {t:80}'.format(t=' '.join(target)))
-            m.add()
-    m.log(print_console=False)
-
-
-def batch_evaluate(func, indexes):
-    tps, tls, tas = [], [], []
-    for batch_idx in indexes:
-        predictions, lss, acc = func(batch_idx)
-
-        tps.append(np.expand_dims(predictions, axis=0))
-        tls.append(float(lss))
-        tas.append(float(acc))
-    predictions = np.concatenate(tps)
-    lss = mean(tls)
-    acc = mean(tas)
-
-    return predictions, lss, acc
-
-
-def evaluate_w2t(epoch, learning_rate, merged, model, sess, targets, writer):
-    m = LogMessage()
-    m.add('')
-    m.add('Epoch: {epoch}'.format(epoch=epoch))
-    m.add('  - learning rate   = {lr:e}'.format(lr=learning_rate.eval()))
-
-    m.add('  Train data')
-
-    def trn_eval(batch_idx):
-        train_predictions, train_lss, train_acc = sess.run(
-            [model.predictions, model.loss, model.accuracy],
-            feed_dict={
-                model.batch_idx: batch_idx,
-                model.use_inputs_prob: 1.0,
-                model.dropout_keep_prob: 1.0,
-                model.phase_train: False,
-            }
-        )
-        return train_predictions, train_lss, train_acc
-
-    train_predictions, train_lss, train_acc = batch_evaluate(trn_eval, model.data.train_batch_indexes)
-
-    m.add('    - accuracy      = {acc:f}'.format(acc=train_acc))
-    m.add('    - loss          = {lss:f}'.format(lss=train_lss))
-
-    m.add('  Dev data')
-
-    def dev_eval(batch_idx):
-        dev_predictions, dev_lss, dev_acc = sess.run(
-            [model.predictions, model.loss, model.accuracy],
-            feed_dict={
-                model.batch_idx: batch_idx,
-                model.use_inputs_prob: 1.0,
-                model.dropout_keep_prob: 1.0,
-                model.phase_train: False,
-            }
-        )
-        return dev_predictions, dev_lss, dev_acc
-
-    dev_predictions, dev_lss, dev_acc = batch_evaluate(dev_eval, model.data.dev_batch_indexes)
-
-    m.add('    - accuracy      = {acc:f}'.format(acc=dev_acc))
-    m.add('    - loss          = {lss:f}'.format(lss=dev_lss))
-
-    m.add('  Test data')
-
-    def tst_eval(batch_idx):
-        test_predictions, test_lss, test_acc = sess.run(
-            [model.predictions, model.loss, model.accuracy],
-            feed_dict={
-                model.batch_idx: batch_idx,
-                model.use_inputs_prob: 0.0,
-                model.dropout_keep_prob: 1.0,
-                model.phase_train: False,
-            }
-        )
-        return test_predictions, test_lss, test_acc
-
-    test_predictions, test_lss, test_acc = batch_evaluate(tst_eval, model.data.test_batch_indexes)
-
-    m.add('    - accuracy      = {acc:f}'.format(acc=test_acc))
-    m.add('    - loss          = {lss:f}'.format(lss=test_lss))
-    m.add()
-    m.log()
-
-    return train_predictions, train_acc, train_lss, \
-           dev_predictions, dev_acc, dev_lss, \
-           test_predictions, test_acc, test_lss
-
-
-def evaluate_w2w(epoch, learning_rate, merged, model, sess, targets, use_inputs_prob, writer):
-    m = LogMessage()
-    m.add()
-    m.add('Epoch: {epoch}'.format(epoch=epoch))
-    m.add('  - learning rate   = {lr:f}'.format(lr=learning_rate.eval()))
-    m.add('  - use inputs prob = {uip:f}'.format(uip=use_inputs_prob))
-
-    m.add('  Train data')
-
-    def trn_eval(batch_idx):
-        train_predictions, train_lss, train_acc = sess.run(
-            [model.predictions, model.loss, model.accuracy],
-            feed_dict={
-                model.batch_idx: batch_idx,
-                model.use_inputs_prob: 1.0,
-                model.dropout_keep_prob: 1.0,
-                model.phase_train: False,
-            }
-        )
-        return train_predictions, train_lss, train_acc
-
-    train_predictions, train_lss, train_acc = batch_evaluate(trn_eval, model.data.train_batch_indexes)
-
-    m.add('    - use inputs prob = {uip:f}'.format(uip=1.0))
-    m.add('      - accuracy      = {acc:f}'.format(acc=train_acc))
-    m.add('      - loss          = {lss:f}'.format(lss=train_lss))
-
-    def trn_eval(batch_idx):
-        train_predictions, test_lss, test_acc = sess.run(
-            [model.predictions, model.loss, model.accuracy],
-            feed_dict={
-                model.batch_idx: batch_idx,
-                model.use_inputs_prob: 0.0,
-                model.dropout_keep_prob: 1.0,
-                model.phase_train: False,
-            }
-        )
-        return train_predictions, train_lss, train_acc
-
-    train_predictions, train_lss, train_acc = batch_evaluate(trn_eval, model.data.train_batch_indexes)
-
-    m.add('    - use inputs prob = {uip:f}'.format(uip=0.0))
-    m.add('      - accuracy      = {acc:f}'.format(acc=train_acc))
-    m.add('      - loss          = {lss:f}'.format(lss=train_lss))
-
-    def dev_eval(batch_idx):
-        dev_predictions, dev_lss, dev_acc = sess.run(
-            [model.predictions, model.loss, model.accuracy],
-            feed_dict={
-                model.batch_idx: batch_idx,
-                model.use_inputs_prob: 0.0,
-                model.dropout_keep_prob: 1.0,
-                model.phase_train: False,
-            }
-        )
-        return dev_predictions, dev_lss, dev_acc
-
-    dev_predictions, dev_lss, dev_acc = batch_evaluate(dev_eval, model.data.dev_batch_indexes)
-
-    m.add('  Dev data')
-    m.add('    - use inputs prob = {uip:f}'.format(uip=0.0))
-    m.add('      - accuracy      = {acc:f}'.format(acc=dev_acc))
-    m.add('      - loss          = {lss:f}'.format(lss=dev_lss))
-    m.add()
-    m.log()
-
-    def tst_eval(batch_idx):
-        test_predictions, test_lss, test_acc = sess.run(
-            [model.predictions, model.loss, model.accuracy],
-            feed_dict={
-                model.batch_idx: batch_idx,
-                model.use_inputs_prob: 0.0,
-                model.dropout_keep_prob: 1.0,
-                model.phase_train: False,
-            }
-        )
-        return test_predictions, test_lss, test_acc
-
-    test_predictions, test_lss, test_acc = batch_evaluate(tst_eval, model.data.test_batch_indexes)
-
-    m.add('  Test data')
-    m.add('    - use inputs prob = {uip:f}'.format(uip=0.0))
-    m.add('      - accuracy      = {acc:f}'.format(acc=test_acc))
-    m.add('      - loss          = {lss:f}'.format(lss=test_lss))
-    m.add()
-    m.log()
-
-    return train_predictions, train_acc, train_lss, \
-           dev_predictions, dev_acc, dev_lss, \
-           test_predictions, test_acc, test_lss
-
-
-def train(model, targets, idx2word_target):
+def train(data, model):
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True,
                                           inter_op_parallelism_threads=FLAGS.threads,
                                           intra_op_parallelism_threads=FLAGS.threads,
@@ -409,17 +167,13 @@ def train(model, targets, idx2word_target):
             shuffle(model.data.train_batch_indexes)
             LogMessage.write('\n')
 
+            m.add('Used inputs prob = {uip:f}'.format(uip=use_inputs_prob))
+
             # evaluate the model
-            if FLAGS.task == 'w2t':
-                train_predictions, train_acc, train_lss, \
-                dev_predictions, dev_acc, dev_lss, \
-                test_predictions, test_acc, test_lss = \
-                    evaluate_w2t(epoch, learning_rate, merged_summaries, model, sess, targets, writer)
-            else:
-                train_predictions, train_acc, train_lss, \
-                dev_predictions, dev_acc, dev_lss, \
-                test_predictions, test_acc, test_lss = \
-                    evaluate_w2w(epoch, learning_rate, merged_summaries, model, sess, targets, use_inputs_prob, writer)
+            train_acc, train_lss, \
+            dev_acc, dev_lss, \
+            test_acc, test_lss = \
+                model.evaluate(epoch, learning_rate, sess)
 
             if epoch == 0 or dev_acc > max(dev_accuracies):
                 max_accuracy_epoch = epoch
@@ -431,38 +185,7 @@ def train(model, targets, idx2word_target):
                 m.log()
 
                 # save predictions on train, dev, and test sets
-                if FLAGS.task == 'w2t':
-                    predictions_argmax = np.argmax(train_predictions, 1)
-                    log_predictions_w2t('predictions_train_set.txt', model,
-                                        model.data.batch_histories, model.data.train_batch_indexes,
-                                        predictions_argmax,
-                                        targets, idx2word_target)
-                    predictions_argmax = np.argmax(dev_predictions, 1)
-                    log_predictions_w2t('predictions_dev_set.txt', model,
-                                        model.data.batch_histories, model.data.dev_batch_indexes,
-                                        predictions_argmax,
-                                        targets, idx2word_target)
-                    predictions_argmax = np.argmax(test_predictions, 1)
-                    log_predictions_w2t('predictions_test_set.txt', model,
-                                        model.data.batch_histories, model.data.test_batch_indexes,
-                                        predictions_argmax,
-                                        targets, idx2word_target)
-                else:
-                    predictions_argmax = np.argmax(train_predictions, 2)
-                    log_predictions_w2w('predictions_train_set.txt', model,
-                                        model.data.batch_histories, model.data.train_batch_indexes,
-                                        predictions_argmax,
-                                        targets, idx2word_target)
-                    predictions_argmax = np.argmax(dev_predictions, 2)
-                    log_predictions_w2w('predictions_dev_set.txt', model,
-                                        model.data.batch_histories, model.data.dev_batch_indexes,
-                                        predictions_argmax,
-                                        targets, idx2word_target)
-                    predictions_argmax = np.argmax(test_predictions, 2)
-                    log_predictions_w2w('predictions_test_set.txt', model,
-                                        model.data.batch_histories, model.data.test_batch_indexes,
-                                        predictions_argmax,
-                                        targets, idx2word_target)
+                model.log_predictions()
 
             m = LogMessage()
             m.add()
@@ -522,6 +245,8 @@ def main(run):
                 FLAGS.task = 'w2t'
             if 'w2w' in FLAGS.model:
                 FLAGS.task = 'w2w'
+            if 'w2targs' in FLAGS.model:
+                FLAGS.task = 'w2targs'
 
             m = LogMessage(time=True)
             m.add('-' * 120)
@@ -530,7 +255,6 @@ def main(run):
             m.add('    threads               = {threads}'.format(threads=FLAGS.threads))
             m.add('    gpu                   = {gpu}'.format(gpu=FLAGS.gpu))
             m.add('    model                 = {model}'.format(model=FLAGS.model))
-            m.add('    task                  = {t}'.format(t=FLAGS.task))
             m.add('    input                 = {i}'.format(i=FLAGS.input))
             m.add('    data_fraction         = {data_fraction}'.format(data_fraction=FLAGS.data_fraction))
             m.add('    train_data            = {train_data}'.format(train_data=FLAGS.train_data))
@@ -579,55 +303,42 @@ def main(run):
             m.add('-' * 120)
             m.log()
 
-            if FLAGS.task == 'tracker':
-                decoder_vocabulary_length = len(data.idx2word_state)
-                idx2word_target = data.idx2word_state
-                targets = data.batch_states
-            elif FLAGS.task == 'w2w':
-                decoder_vocabulary_length = len(data.idx2word_action)
-                idx2word_target = data.idx2word_action
-                targets = data.batch_actions
-            elif FLAGS.task == 'w2t':
-                decoder_vocabulary_length = len(data.idx2word_action_template)
-                idx2word_target = data.idx2word_action_template
-                targets = data.batch_actions_template
-            else:
-                raise Exception('Error: Unsupported task')
-
             if FLAGS.model == 'cnn-w2w':
-                model = cnn_w2w.Model(data, targets, decoder_vocabulary_length, FLAGS)
+                model = cnn_w2w.Model(data, FLAGS)
             elif FLAGS.model == 'rnn-w2w':
-                model = rnn_w2w.Model(data, targets, decoder_vocabulary_length, FLAGS)
+                model = rnn_w2w.Model(data, FLAGS)
             elif FLAGS.model == 'cnn12-w2t':
-                model = cnn12_w2t.Model(data, targets, decoder_vocabulary_length, FLAGS)
+                model = cnn12_w2t.Model(data, FLAGS)
+            elif FLAGS.model == 'cnn12-bn-w2targs':
+                model = cnn12_bn_w2targs.Model(data, FLAGS)
             elif FLAGS.model == 'cnn12-bn-w2t':
-                model = cnn12_bn_w2t.Model(data, targets, decoder_vocabulary_length, FLAGS)
+                model = cnn12_bn_w2t.Model(data, FLAGS)
             elif FLAGS.model == 'cnn12-mp-bn-w2t':
-                model = cnn12_mp_bn_w2t.Model(data, targets, decoder_vocabulary_length, FLAGS)
+                model = cnn12_mp_bn_w2t.Model(data, FLAGS)
             elif FLAGS.model == 'cnn13-bn-w2t':
-                model = cnn13_bn_w2t.Model(data, targets, decoder_vocabulary_length, FLAGS)
+                model = cnn13_bn_w2t.Model(data, FLAGS)
             elif FLAGS.model == 'cnn13-mp-bn-w2t':
-                model = cnn13_mp_bn_w2t.Model(data, targets, decoder_vocabulary_length, FLAGS)
+                model = cnn13_mp_bn_w2t.Model(data, FLAGS)
             elif FLAGS.model == 'cnn12-att-a-w2t':
-                model = cnn12_att_a_w2t.Model(data, targets, decoder_vocabulary_length, FLAGS)
+                model = cnn12_att_a_w2t.Model(data, FLAGS)
             elif FLAGS.model == 'cnn12-bn-att-a-w2t':
-                model = cnn12_bn_att_a_w2t.Model(data, targets, decoder_vocabulary_length, FLAGS)
+                model = cnn12_bn_att_a_w2t.Model(data, FLAGS)
             elif FLAGS.model == 'cnn12-bn-att-a-bn-w2t':
-                model = cnn12_bn_att_a_bn_w2t.Model(data, targets, decoder_vocabulary_length, FLAGS)
+                model = cnn12_bn_att_a_bn_w2t.Model(data, FLAGS)
             elif FLAGS.model == 'cnn12-mp-bn-att-a-w2t':
-                model = cnn12_mp_bn_att_a_w2t.Model(data, targets, decoder_vocabulary_length, FLAGS)
+                model = cnn12_mp_bn_att_a_w2t.Model(data, FLAGS)
             elif FLAGS.model == 'cnn12-att-b-w2t':
-                model = cnn12_att_b_w2t.Model(data, targets, decoder_vocabulary_length, FLAGS)
+                model = cnn12_att_b_w2t.Model(data, FLAGS)
             elif FLAGS.model == 'cnn23-mp-bn-w2t':
-                model = cnn23_mp_bn_w2t.Model(data, targets, decoder_vocabulary_length, FLAGS)
+                model = cnn23_mp_bn_w2t.Model(data, FLAGS)
             elif FLAGS.model == 'rnn1-w2t':
-                model = rnn1_w2t.Model(data, targets, decoder_vocabulary_length, FLAGS)
+                model = rnn1_w2t.Model(data, FLAGS)
             elif FLAGS.model == 'rnn2-w2t':
-                model = rnn2_w2t.Model(data, targets, decoder_vocabulary_length, FLAGS)
+                model = rnn2_w2t.Model(data, FLAGS)
             else:
-                raise Exception('Error: Unsupported model')
+                raise Exception('Error: Unsupported model - {m}'.format(m=FLAGS.model))
 
-            train(model, targets, idx2word_target)
+            train(data, model)
 
 
 if __name__ == '__main__':
