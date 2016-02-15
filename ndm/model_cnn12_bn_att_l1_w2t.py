@@ -30,10 +30,13 @@ class Model(ModelW2T):
         action_templates_vocabulary_length = len(data.idx2word_action_template)
 
         with tf.name_scope('data'):
-            database = tf.Variable(data.database, name='database', trainable=False)
+            database = tf.Variable(data.database, name='database',
+                                   trainable=False)
 
-            batch_histories = tf.Variable(data.batch_histories, name='histories', trainable=False)
-            batch_histories_arguments = tf.Variable(data.batch_histories_arguments, name='histories_arguments', trainable=False)
+            batch_histories = tf.Variable(data.batch_histories, name='histories',
+                                          trainable=False)
+            batch_histories_arguments = tf.Variable(data.batch_histories_arguments, name='histories_arguments',
+                                                    trainable=False)
             batch_actions_template = tf.Variable(data.batch_actions_template, name='actions',
                                                  trainable=False)
 
