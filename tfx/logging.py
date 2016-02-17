@@ -81,7 +81,7 @@ class LogMessage:
         if append:
             mode = 'ta'
         else:
-            mode = 't'
+            mode = 'tw'
 
         msg = end.join(self.msg)
         with open(os.path.join(exp_dir, self.filename), mode=mode) as l:
