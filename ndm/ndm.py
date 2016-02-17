@@ -9,7 +9,6 @@ from time import sleep
 
 sys.path.extend(['..'])
 
-import numpy as np
 import tensorflow as tf
 
 import dataset
@@ -21,6 +20,7 @@ import model_cnn12_bn_w2targs as cnn12_bn_w2targs
 import model_cnn12_mp_bn_w2t as cnn12_mp_bn_w2t
 import model_cnn12_att_a_w2t as cnn12_att_a_w2t
 import model_cnn12_bn_att_a_w2t as cnn12_bn_att_a_w2t
+import model_cnn12_bn_att_a_w2targs as cnn12_bn_att_a_w2targs
 import model_cnn12_bn_att_a_bn_w2t as cnn12_bn_att_a_bn_w2t
 import model_cnn12_mp_bn_att_a_w2t as cnn12_mp_bn_att_a_w2t
 import model_cnn13_bn_w2t as cnn13_bn_w2t
@@ -60,6 +60,7 @@ flags.DEFINE_string('model', "cnn12-bn-w2t",
                     '"rnn2-w2t" (bidirectional recurrent network for state tracking - words 2 template)'
 
                     '"cnn12-bn-w2targs" (convolutional network for state tracking - words 2 template | '
+                    '"cnn12-bn-att-a-w2targs" (convolutional network for state tracking with attention model - words 2 template | '
                     )
 flags.DEFINE_boolean('gpu', False, 'Run the computation on a GPU.')
 flags.DEFINE_string('input', 'asr',
@@ -321,6 +322,8 @@ def main(run):
                 model = cnn13_mp_bn_w2t.Model(data, FLAGS)
             elif FLAGS.model == 'cnn12-att-a-w2t':
                 model = cnn12_att_a_w2t.Model(data, FLAGS)
+            elif FLAGS.model == 'cnn12-bn-att-a-w2targs':
+                model = cnn12_bn_att_a_w2targs.Model(data, FLAGS)
             elif FLAGS.model == 'cnn12-bn-att-a-w2t':
                 model = cnn12_bn_att_a_w2t.Model(data, FLAGS)
             elif FLAGS.model == 'cnn12-bn-att-a-bn-w2t':
