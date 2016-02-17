@@ -146,7 +146,7 @@ class ModelW2W(BaseModel):
 
                 m.add('T  : {t:80}'.format(t=' '.join(target)))
                 m.add()
-        m.log(print_console=False)
+        m.log(print_console=False, append=False)
 
     def log_predictions(self):
         self.log_predictions_dataset(
@@ -268,7 +268,7 @@ class ModelW2T(BaseModel):
                 )
                 m.add()
                 # m.log()
-        m.log(print_console=False)
+        m.log(print_console=False, append=False)
 
     def log_predictions(self):
         self.log_predictions_dataset(
@@ -428,7 +428,7 @@ class ModelW2TArgs(BaseModel):
 
                 m.add()
                 # m.log()
-        m.log(print_console=False)
+        m.log(print_console=False, append=False)
 
     def log_predictions(self):
         self.log_predictions_dataset(

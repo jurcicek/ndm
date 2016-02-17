@@ -77,9 +77,14 @@ class LogMessage:
 
         print(msg, end='', flush=True)
 
-    def log(self, end='\n', print_console=True):
+    def log(self, end='\n', print_console=True, append=True):
+        if append:
+            mode = 'ta'
+        else:
+            mode = 't'
+
         msg = end.join(self.msg)
-        with open(os.path.join(exp_dir, self.filename), 'ta') as l:
+        with open(os.path.join(exp_dir, self.filename), mode=mode) as l:
             if self.time:
                 l.write('Time stamp: {s}'.format(s=dt()))
                 l.write('\n')
