@@ -439,7 +439,7 @@ class DSTC2:
         abstract_train_examples = add_action_templates(abstract_train_examples)
 
         # self.print_abstract_examples(abstract_train_examples)
-
+        
         self.idx2word_history, \
         self.idx2word_history_arguments, \
         self.idx2word_state, \

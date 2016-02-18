@@ -358,7 +358,6 @@ def rnn_decoder(cell, inputs, initial_state, embedding_size, embedding_length, s
                 # we do no compute the gradient trough argmax
                 output_argmax = tf.stop_gradient(tf.argmax(softmax, 1))
                 # we do no compute the gradient for embeddings when used with noisy argmax outputs
-
                 output_argmax_embedding = tf.stop_gradient(tf.gather(embedding_table, output_argmax))
                 decoder_outputs_argmax_embedding.append(output_argmax_embedding)
 

@@ -166,9 +166,10 @@ def train(data, model):
                     }
                 )
             shuffle(model.data.train_batch_indexes)
-            LogMessage.write('\n')
 
-            m.add('Used inputs prob = {uip:f}'.format(uip=use_inputs_prob))
+            LogMessage.write('\n\n')
+            LogMessage.write('Used inputs prob = {uip:f}'.format(uip=use_inputs_prob))
+            LogMessage.write('\n')
 
             # evaluate the model
             train_acc, train_lss, \

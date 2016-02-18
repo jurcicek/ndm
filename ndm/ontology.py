@@ -57,9 +57,10 @@ class Arguments:
         else:
             # I must add the argument and the return it
             if self.n_arguments_per_slot > 1:
-                for i in range(0, self.n_arguments_per_slot * 3):
-                    n = randint(0, self.n_arguments_per_slot - 1)
-                    ARGUMENT = slot + '_' + str(n)
+                # for i in range(0, self.n_arguments_per_slot * 3):
+                #     n = randint(0, self.n_arguments_per_slot - 1)
+                for i in range(0, self.n_arguments_per_slot):
+                    ARGUMENT = slot + '_' + str(i)
 
                     if ARGUMENT in self.argument2value:
                         continue
@@ -124,6 +125,7 @@ class Ontology:
         self.add_entity('PRICERANGE', 'moderate', 'modreately')
         self.add_entity('PRICERANGE', 'expensive', 'spensive')
         self.add_entity('FOOD', 'asian oriental', 'asian')
+        self.add_entity('FOOD', 'asian oriental', 'oriental')
         self.add_entity('FOOD', 'mediterranean', 'mediteranian')
         self.add_entity('FOOD', 'barbeque', 'barbecue')
         self.add_entity('FOOD', 'cantonese', 'cantonates')
@@ -183,6 +185,7 @@ class Ontology:
                 print('=' * 120)
             abs_history = []
             history_arguments = Arguments(n_arguments_per_slot=5, slots=self.slots)
+            # for utterance in reversed(history):
             for utterance in history:
                 abs_utt = self.abstract_utterance(utterance, history_arguments)
                 abs_history.append(abs_utt)
@@ -192,6 +195,8 @@ class Ontology:
                     print('AbsU ', abs_utt)
                     print('ArgsH', history_arguments)
                     print()
+
+            # abs_history.reverse()
 
             # if '' in history_arguments.values():
             #     print('U    ', utterance)

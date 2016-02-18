@@ -146,6 +146,7 @@ class ModelW2W(BaseModel):
 
                 m.add('T  : {t:80}'.format(t=' '.join(target)))
                 m.add()
+        # m.log(print_console=True, append=False)
         m.log(print_console=False, append=False)
 
     def log_predictions(self):
@@ -402,7 +403,14 @@ class ModelW2TArgs(BaseModel):
                         if w not in ['_SOS_', '_EOS_']:
                             utterance.append(w)
                     if utterance:
-                        m.add('U {j}  : {c:80}'.format(j=j, c=' '.join(utterance)))
+                        m.add('U {j:2} : {c:80}'.format(j=j, c=' '.join(utterance)))
+
+                w_histories_arguments = []
+                for j in range(self.data.batch_histories_arguments.shape[2]):
+                    w = self.data.idx2word_history_arguments[self.data.batch_histories_arguments[batch_idx, history, j]]
+                    w_histories_arguments.append(w)
+
+                m.add('ArgsH: {t:80}'.format(t=', '.join(w_histories_arguments)))
 
                 m.add('P    : {t:80}'.format(
                     t=self.data.idx2word_action_template[actions_template[prediction_batch_idx, history]])
@@ -427,7 +435,7 @@ class ModelW2TArgs(BaseModel):
                 m.add('ArgsT: {t:80}'.format(t=', '.join(w_actions_arguments)))
 
                 m.add()
-                # m.log()
+        # m.log(print_console=True, append=False)
         m.log(print_console=False, append=False)
 
     def log_predictions(self):

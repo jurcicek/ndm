@@ -18,6 +18,7 @@ class Model(ModelW2TArgs):
         history_length = data.train_set['histories'].shape[1]
 
         action_templates_vocabulary_length = len(data.idx2word_action_template)
+        action_templates_embedding_size = 8
 
         num_actions_arguments = data.batch_actions_arguments.shape[2]
         actions_arguments_vocabulary_length = len(data.idx2word_action_arguments)
@@ -126,31 +127,62 @@ class Model(ModelW2TArgs):
                 self.predictions_action = tf.nn.softmax(projection, name="softmax_output_prediction_action")
 
                 # argument prediction
+
+                # first encode decoded action template and teh true action template
+                choice = tf.floor(tf.random_uniform([1], self.use_inputs_prob, 1 + self.use_inputs_prob, tf.float32))
+
+                prediction_action_argmax = tf.stop_gradient(tf.argmax(self.predictions_action, 1))
+                predicted_action_templates_embedding = embedding(
+                    input=prediction_action_argmax,
+                    length=action_templates_vocabulary_length,
+                    size=action_templates_embedding_size,
+                    name='action_templates_embedding'
+                )
+
+                true_action_template_embedding = tf.gather(predicted_action_templates_embedding.embedding_table, actions_template)
+                predicted_action_templates_embedding = tf.stop_gradient(predicted_action_templates_embedding)
+
+                action_templates_embedding = choice * true_action_template_embedding + (1.0 - choice) * predicted_action_templates_embedding
+
+                dialogue_state_action_template = tf.concat(
+                    1,
+                    [
+                        dialogue_state,
+                        action_templates_embedding
+                    ],
+                    name='dialogue_state_action_template'
+                )
+                dialogue_state_action_template_size = (
+                    dialogue_state_size +
+                    action_templates_embedding_size
+                )
+
+                # condition on the dialogue state and the decoded template
                 projection = linear(
-                    input=dialogue_state,
-                    input_size=dialogue_state_size,
-                    output_size=dialogue_state_size,
+                    input=dialogue_state_action_template,
+                    input_size=dialogue_state_action_template_size,
+                    output_size=dialogue_state_action_template_size,
                     name='linear_projection_1_predictions_arguments'
                 )
-                projection = batch_norm_lin(projection, dialogue_state_size, self.phase_train,
+                projection = batch_norm_lin(projection, dialogue_state_action_template_size, self.phase_train,
                                             name='linear_projection_1_predictions_arguments_bn')
                 activation = tf.nn.relu(projection)
                 activation = dropout(activation, self.dropout_keep_prob)
 
                 projection = linear(
                     input=activation,
-                    input_size=dialogue_state_size,
-                    output_size=dialogue_state_size,
+                    input_size=dialogue_state_action_template_size,
+                    output_size=dialogue_state_action_template_size,
                     name='linear_projection_2_predictions_arguments'
                 )
-                projection = batch_norm_lin(projection, dialogue_state_size, self.phase_train,
+                projection = batch_norm_lin(projection, dialogue_state_action_template_size, self.phase_train,
                                             name='linear_projection_2_predictions_arguments_bn')
                 activation = tf.nn.relu(projection)
                 activation = dropout(activation, self.dropout_keep_prob)
 
                 projection = linear(
                     input=activation,
-                    input_size=dialogue_state_size,
+                    input_size=dialogue_state_action_template_size,
                     output_size=num_actions_arguments * actions_arguments_vocabulary_length,
                     name='linear_projection_3_predictions_arguments'
                 )

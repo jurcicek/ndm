@@ -206,14 +206,21 @@ class Model(ModelW2TArgs):
 
                 # argument prediction
 
-                # first encode decoded action template
-                prediction_action_argmax = tf.argmax(self.predictions_action, 1)
-                action_templates_embedding = embedding(
+                # first encode decoded action template and teh true action template
+                choice = tf.floor(tf.random_uniform([1], self.use_inputs_prob, 1 + self.use_inputs_prob, tf.float32))
+
+                prediction_action_argmax = tf.stop_gradient(tf.argmax(self.predictions_action, 1))
+                predicted_action_templates_embedding = embedding(
                     input=prediction_action_argmax,
                     length=action_templates_vocabulary_length,
                     size=action_templates_embedding_size,
                     name='action_templates_embedding'
                 )
+
+                true_action_template_embedding = tf.gather(predicted_action_templates_embedding.embedding_table, actions_template)
+                predicted_action_templates_embedding = tf.stop_gradient(predicted_action_templates_embedding)
+
+                action_templates_embedding = choice * true_action_template_embedding + (1.0 - choice) * predicted_action_templates_embedding
 
                 dialogue_state_action_template = tf.concat(
                     1,
@@ -280,8 +287,7 @@ class Model(ModelW2TArgs):
                 name='loss'
             )
 
-            self.loss = loss_action + loss_arguments
-
+            self.loss = (loss_action + loss_arguments)/2
             tf.scalar_summary('loss', self.loss)
 
         with tf.name_scope('accuracy'):
@@ -296,3 +302,6 @@ class Model(ModelW2TArgs):
                                                     tf.argmax(self.predictions_arguments, 2))
             self.accuracy_arguments = tf.reduce_mean(tf.cast(correct_prediction_arguments, 'float'))
             tf.scalar_summary('accuracy_arguments', self.accuracy_arguments)
+
+            self.accuracy = (self.accuracy_action + self.accuracy_arguments)/2
+            tf.scalar_summary('accuracy', self.accuracy)
